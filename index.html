@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Školní knihovna – databáze zevnitř</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EDE6D6; --paper-light:#F7F2E7; --card:#FBF8F1; --ink:#2B2420; --ink-soft:#5B5147;
+  --green:#2F4A3C; --green-dark:#1F332A; --red:#A63D2F; --amber:#C9973A; --border:#C9BFA8;
+  --k-kw:#2F4A3C; --k-tbl:#8A5A12; --k-col:#2B5A8C; --k-val:#A63D2F; --k-op:#5B5147;
+  --serif:'Spectral',Georgia,serif; --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;padding:20px clamp(16px,3vw,36px) 16px;border-bottom:2px solid var(--border)}
+.top h1{font-family:var(--serif);font-size:clamp(22px,2.6vw,30px);margin:0;color:var(--green-dark)}
+.top p{margin:2px 0 0;color:var(--ink-soft);font-size:14px}
+.top-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1.5px solid var(--green);background:var(--paper-light);color:var(--green-dark);font-weight:600;font-size:13px;padding:8px 14px;border-radius:4px;transition:background .12s,color .12s,transform .1s}
+.btn:hover{background:var(--green);color:var(--paper-light)}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--green);color:var(--paper-light)}
+.btn.primary:hover{background:var(--green-dark)}
+.btn.ghost{border-color:var(--border);color:var(--ink-soft)}
+.btn.ghost:hover{background:var(--card);color:var(--ink)}
+.btn.small{padding:6px 11px;font-size:12.5px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,450px);gap:22px;padding:18px clamp(16px,3vw,36px) 40px;align-items:start}
+@media (max-width:1050px){.layout{grid-template-columns:1fr}.sql-side{position:static!important;max-height:none!important}}
+.tabs{display:flex;gap:4px;border-bottom:2px solid var(--border);margin-bottom:12px;flex-wrap:wrap}
+.tab{background:none;border:none;border-bottom:3px solid transparent;margin-bottom:-2px;padding:9px 14px;font-weight:600;color:var(--ink-soft)}
+.tab.active{color:var(--green-dark);border-bottom-color:var(--green)}
+.tab-count{font-family:var(--mono);font-size:11.5px;font-weight:500;color:var(--ink-soft);margin-left:4px}
+.toolbar{background:var(--paper-light);border:1px solid var(--border);border-radius:6px;padding:12px 14px;margin-bottom:14px}
+.tb-row{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end}
+.tb-row2{margin-top:10px;align-items:center}
+.fld{display:flex;flex-direction:column;gap:3px;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft)}
+.fld input,.fld select{font:inherit;font-size:14px;text-transform:none;letter-spacing:0;color:var(--ink);background:var(--card);border:1px solid var(--border);border-radius:4px;padding:6px 8px;min-width:120px}
+.fld input[type=number]{width:120px;min-width:0}
+.chk{display:flex;align-items:center;gap:6px;font-size:14px;padding-bottom:6px}
+.spacer{flex:1}
+.shown{font-size:13px;color:var(--ink-soft)}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--amber);color:#2B2420;border-radius:20px;padding:3px 5px 3px 10px;font-size:12.5px;font-weight:600}
+.chip button{border:none;background:rgba(0,0,0,.14);border-radius:50%;width:20px;height:20px;line-height:1;padding:0}
+.chip[hidden]{display:none}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.seg button{border:none;background:var(--card);padding:6px 10px;font-size:12.5px;color:var(--ink-soft)}
+.seg button.on{background:var(--green);color:var(--paper-light)}
+.pane-note{font-size:13px;color:var(--ink-soft);margin:0 0 12px;background:var(--card);border-left:4px solid var(--k-col);padding:8px 12px;border-radius:0 4px 4px 0}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:14px}
+.card{background:var(--card);border:1.5px solid var(--border);border-radius:5px;padding:12px 14px 10px;box-shadow:0 1px 2px rgba(43,36,32,.08);display:flex;flex-direction:column;gap:6px}
+.card-top{display:flex;justify-content:space-between;align-items:center;gap:6px;padding-bottom:7px;border-bottom:1.5px solid #D9A79C;flex-wrap:wrap}
+.pk{font-family:var(--mono);font-size:11.5px;color:var(--ink-soft)}
+.pk b{display:inline-block;background:var(--amber);color:#2B2420;border-radius:3px;padding:0 6px;margin-left:4px;font-size:13px}
+.pill{font-family:var(--mono);font-size:11.5px;border-radius:20px;padding:2px 8px;font-weight:600}
+.pill.yes{background:rgba(47,74,60,.13);color:var(--green-dark)}
+.pill.no{background:rgba(166,61,47,.13);color:var(--red)}
+.cl{display:block;font-family:var(--mono);font-size:10.5px;color:#8C8173;letter-spacing:.02em}
+.field h3{font-family:var(--serif);font-size:17px;margin:0;line-height:1.25;color:var(--ink)}
+.field p{margin:0}
+.field-row{display:flex;gap:22px}
+.card-actions{display:flex;gap:6px;margin-top:auto;padding-top:8px;border-top:1px dashed var(--border);flex-wrap:wrap}
+.card-actions button{flex:1;border:1px solid var(--border);background:var(--paper-light);border-radius:4px;padding:5px 6px;font-size:12.5px;font-weight:600;color:var(--green-dark)}
+.card-actions button:hover:not([disabled]){border-color:var(--green);background:var(--green);color:var(--paper-light)}
+.card-actions button.del{color:var(--red)}
+.card-actions button.del:hover{background:var(--red);border-color:var(--red);color:#fff}
+.card-actions button[disabled]{opacity:.4;cursor:not-allowed}
+.fk-link{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.fk-id{font-family:var(--mono);font-weight:600;background:rgba(43,90,140,.12);color:var(--k-col);border-radius:3px;padding:0 6px}
+.linkbtn{border:none;background:none;color:var(--k-col);text-decoration:underline;padding:0;font-size:12.5px}
+.hl-new,.hl-upd{animation:flash 2.4s ease-out}
+@keyframes flash{0%{box-shadow:0 0 0 5px rgba(201,151,58,.85);background:#FFF3D6}100%{box-shadow:0 1px 2px rgba(43,36,32,.08)}}
+.empty{padding:28px;text-align:center;color:var(--ink-soft);border:1.5px dashed var(--border);border-radius:6px;grid-column:1/-1}
+.danger{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:22px;padding:12px 14px;border:1.5px dashed var(--red);border-radius:6px;background:rgba(166,61,47,.04)}
+.danger strong{display:block;color:var(--red);font-size:12.5px;text-transform:uppercase;letter-spacing:.05em}
+.danger span{font-size:13.5px;color:var(--ink-soft)}
+.btn.danger-btn{border-color:var(--red);color:var(--red);background:transparent}
+.btn.danger-btn:hover{background:var(--red);color:#fff}
+.tbl-wrap{overflow-x:auto;background:var(--card);border:1px solid var(--border);border-radius:5px}
+table.dt{border-collapse:collapse;width:100%;font-size:13px}
+.dt th,.dt td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+.dt th{background:var(--paper-light);font-family:var(--mono);font-size:12px;color:var(--green-dark);vertical-align:bottom}
+.dt th small{display:block;font-family:var(--sans);font-weight:400;color:var(--ink-soft);font-size:10.5px}
+.dt td{font-family:var(--mono)}
+.dt tr.hl-new td,.dt tr.hl-upd td{animation:flashbg 2.4s ease-out}
+.dt tr.hl-new,.dt tr.hl-upd{animation:none}
+@keyframes flashbg{0%{background:#FFE7AE}100%{background:transparent}}
+.dt.mini td.hl-row{background:#FFE7AE}
+.dt.mini td.hl-col{background:rgba(43,90,140,.16)}
+.dt.mini td.hl-row.hl-col{background:#E3D39C}
+@media (prefers-reduced-motion:reduce){.hl-new,.hl-upd,.dt tr.hl-new td,.dt tr.hl-upd td{animation:none;outline:3px solid var(--amber)}}
+.sql-side{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;background:var(--paper-light);border:1.5px solid var(--border);border-radius:8px;padding:16px 16px 18px}
+.sql-side h2{font-family:var(--serif);font-size:19px;margin:0 0 2px;color:var(--green-dark)}
+.sub{font-size:12.5px;color:var(--ink-soft);margin:0 0 10px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11.5px;margin:0 0 12px;color:var(--ink-soft)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px}
+.act-title{font-weight:600;font-size:13.5px;margin-bottom:8px}
+.multi{font-size:12.5px;color:var(--ink-soft);margin:-4px 0 8px}
+.cmd-block{border:1px solid var(--border);background:var(--card);border-radius:6px;padding:10px;margin-bottom:10px}
+.step{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);margin-bottom:6px;font-weight:600}
+.gloss{display:flex;flex-wrap:wrap;gap:6px 5px}
+.g{display:inline-flex;flex-direction:column;align-items:center;border-radius:5px;padding:5px 8px 4px;background:var(--paper-light);border-top:3px solid currentColor;max-width:100%}
+.g code{font-family:var(--mono);font-size:14.5px;font-weight:600;white-space:pre-wrap;word-break:break-word;text-align:center}
+.g small{font-size:11.5px;color:var(--ink-soft);margin-top:2px;text-align:center;line-height:1.25}
+.g-kw{color:var(--k-kw)} .g-tbl{color:var(--k-tbl)} .g-col{color:var(--k-col)} .g-val{color:var(--k-val)} .g-op{color:var(--k-op)}
+.cmd-tools{text-align:right;margin-top:6px}
+.raw{font-family:var(--mono);background:var(--green-dark);color:#DCE7DD;border-radius:5px;padding:8px 10px;margin:0;white-space:pre-wrap;word-break:break-word;font-size:13.5px}
+.okline{margin-top:8px;font-size:13.5px;color:var(--green-dark);background:rgba(47,74,60,.08);border-left:4px solid var(--green);padding:7px 10px;border-radius:0 4px 4px 0}
+.okline .tbl-wrap{margin-top:8px}
+.stamp{margin-top:8px;border:2px solid var(--red);color:var(--red);border-radius:5px;padding:10px 12px;background:repeating-linear-gradient(135deg,rgba(166,61,47,.05) 0 10px,transparent 10px 20px);font-size:13.5px}
+.stamp-title{font-family:var(--serif);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:12px;margin-bottom:4px}
+.stamp strong{display:block;margin-bottom:4px;color:var(--ink)}
+.stamp p{margin:4px 0 0;color:var(--ink)}
+.stamp b{color:var(--red)}
+.placeholder{font-size:14px;color:var(--ink-soft);background:var(--card);border:1.5px dashed var(--border);border-radius:6px;padding:14px}
+.console{margin-top:16px;border-top:1px dashed var(--border);padding-top:14px}
+.console label{font-weight:600;font-size:13.5px}
+.console-row{display:flex;align-items:center;gap:8px;background:var(--green-dark);border-radius:6px;padding:8px 10px;margin-top:6px}
+.console-row span{font-family:var(--mono);color:var(--amber);font-weight:600}
+.console-row input{flex:1;min-width:0;background:transparent;border:none;color:#DCE7DD;font-family:var(--mono);font-size:14px;padding:4px 0}
+.console-row input::placeholder{color:#7C9184}
+.console-row input:focus{outline:none}
+.console-row .btn{border-color:var(--amber);color:var(--amber);background:transparent;padding:5px 10px}
+.console-row .btn:hover{background:var(--amber);color:var(--green-dark)}
+.hint{font-size:12px;color:var(--ink-soft);margin:6px 0 0}
+.templates{display:flex;flex-direction:column;gap:4px;margin-top:8px}
+.templates button{text-align:left;border:1px dashed var(--border);background:var(--card);border-radius:4px;padding:4px 8px;font-family:var(--mono);font-size:12px;color:var(--ink)}
+.templates button:hover{border-style:solid;border-color:var(--green)}
+.history{margin-top:16px}
+.history h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin:0 0 6px}
+.history ol{list-style:none;margin:0;padding:0}
+.history li button{display:flex;gap:7px;align-items:baseline;width:100%;text-align:left;background:none;border:none;padding:4px 2px;font-family:var(--mono);font-size:12px;color:var(--ink-soft);border-radius:3px}
+.history li button:hover{background:var(--card);color:var(--ink)}
+.dot{width:7px;height:7px;border-radius:50%;flex:none;transform:translateY(-1px)}
+.dot.ok{background:var(--green)} .dot.err{background:var(--red)}
+.backdrop{position:fixed;inset:0;background:rgba(43,36,32,.5);display:none;align-items:center;justify-content:center;padding:16px;z-index:20}
+.backdrop.open{display:flex}
+.modal{background:var(--paper-light);border:1px solid var(--border);border-radius:10px;width:100%;max-width:640px;max-height:92vh;overflow:auto;padding:22px 24px}
+.modal h2{font-family:var(--serif);margin:0 0 4px;color:var(--green-dark)}
+.modal .sub{font-size:13.5px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;margin:14px 0}
+.form-grid .full{grid-column:1/-1}
+@media (max-width:560px){.form-grid{grid-template-columns:1fr}}
+.form-grid label{display:flex;flex-direction:column;gap:3px;font-size:13px;font-weight:600}
+.form-grid input,.form-grid select{font:inherit;font-weight:400;padding:7px 9px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--ink)}
+.form-grid input[disabled]{background:#E6DFD0;color:var(--ink-soft)}
+.note{font-size:12px;font-weight:400;color:var(--ink-soft)}
+.preview{border-top:1px dashed var(--border);padding-top:12px}
+.preview h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin:0 0 8px}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;flex-wrap:wrap}
+.intro{max-width:720px}
+.intro h2{font-size:25px}
+.intro p{font-size:15.5px}
+.intro-foot{display:flex;justify-content:space-between;align-items:center;margin-top:18px;gap:10px;flex-wrap:wrap}
+.dots{display:flex;gap:6px}
+.dots i{width:9px;height:9px;border-radius:50%;background:var(--border)}
+.dots i.on{background:var(--green)}
+.tags{display:flex;flex-direction:column;gap:7px;font-size:14px;margin-top:12px}
+.tag{display:inline-block;border-radius:3px;padding:0 6px;font-weight:600;font-family:var(--mono);font-size:13px}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(430px,100%);background:var(--paper-light);border-left:2px solid var(--border);box-shadow:-8px 0 24px rgba(43,36,32,.18);transform:translateX(105%);transition:transform .25s ease;z-index:25;display:flex;flex-direction:column}
+.drawer.open{transform:none}
+@media (prefers-reduced-motion:reduce){.drawer,.toast{transition:none}}
+.drawer-head{padding:18px 20px 12px;border-bottom:1px solid var(--border)}
+.drawer-head .row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.drawer-head h2{font-family:var(--serif);margin:0;color:var(--green-dark)}
+.drawer-body{padding:6px 20px 20px;overflow:auto}
+.progress{height:8px;border-radius:5px;background:var(--border);overflow:hidden;margin:10px 0 4px}
+.progress i{display:block;height:100%;background:var(--green);transition:width .3s;width:0}
+.mission{display:flex;gap:10px;padding:11px 0;border-bottom:1px dashed var(--border)}
+.mcheck{flex:none;width:24px;height:24px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:13px;margin-top:1px}
+.mission.done .mcheck{background:var(--green);border-color:var(--green)}
+.mission.done .mtitle{color:var(--green-dark)}
+.mtitle{font-weight:600;font-size:14px}
+.mhint{font-size:12.5px;color:var(--ink-soft);margin-top:3px}
+.drawer-foot{font-size:13px;color:var(--ink-soft);margin-top:14px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:10px 12px}
+.toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,160%);background:var(--green-dark);color:#F7F2E7;padding:10px 16px;border-radius:6px;font-size:14px;box-shadow:0 6px 18px rgba(0,0,0,.25);transition:transform .25s;z-index:40;max-width:min(560px,92vw);text-align:center}
+.toast.show{transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div>
+    <h1>Školní knihovna</h1>
+    <p>Databáze zevnitř: klikej na karty a vpravo sleduj, co přesně databáze dostala za příkaz.</p>
+  </div>
+  <div class="top-actions">
+    <button class="btn primary" id="btn-missions">Mise <span id="mission-count">0/8</span></button>
+    <button class="btn ghost" id="btn-intro">Průvodce</button>
+    <button class="btn ghost" id="btn-reset">Obnovit knihovnu</button>
+  </div>
+</header>
+
+<main class="layout">
+  <section>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="Knihy" role="tab">Tabulka Knihy <span class="tab-count" id="count-Knihy"></span></button>
+      <button class="tab" data-tab="Vypujcky" role="tab">Tabulka Výpůjčky <span class="tab-count" id="count-Vypujcky"></span></button>
+    </nav>
+
+    <div id="pane-Knihy">
+      <div class="toolbar">
+        <div class="tb-row">
+          <label class="fld"><span>Hledat v názvu</span><input id="f-search" type="text" placeholder="např. Harry"></label>
+          <label class="fld"><span>Žánr</span><select id="f-genre"></select></label>
+          <label class="fld"><span>Vydáno po roce</span><input id="f-year" type="number" placeholder="např. 2000"></label>
+          <label class="fld"><span>Seřadit</span>
+            <select id="f-sort">
+              <option value="">neřadit</option>
+              <option value="Nazev|ASC">podle názvu A–Z</option>
+              <option value="Rok|DESC">od nejnovější</option>
+              <option value="Rok|ASC">od nejstarší</option>
+            </select>
+          </label>
+          <label class="chk"><input id="f-avail" type="checkbox"> jen dostupné</label>
+        </div>
+        <div class="tb-row tb-row2">
+          <span class="chip" id="id-chip" hidden><span id="id-chip-text"></span><button id="id-chip-x" aria-label="Zrušit">×</button></span>
+          <span class="shown" id="shown-Knihy"></span>
+          <span class="spacer"></span>
+          <span class="seg" data-seg><button data-view="cards" class="on">Karty</button><button data-view="table">Tabulka</button></span>
+          <button class="btn small ghost" id="btn-clear">Zrušit výběr</button>
+          <button class="btn small primary" id="btn-add">+ Přidat knihu</button>
+        </div>
+      </div>
+      <div class="cards" id="cards-Knihy"></div>
+      <div id="table-Knihy" hidden></div>
+      <div class="danger">
+        <div><strong>Nebezpečná zóna</strong><span>Co se stane, když databázi řekneš, ať smaže úplně všechno?</span></div>
+        <button class="btn danger-btn" id="btn-delete-all">Smazat všechny knihy</button>
+      </div>
+    </div>
+
+    <div id="pane-Vypujcky" hidden>
+      <p class="pane-note">Každá výpůjčka je taky jen karta. Sloupec <b>Kniha_ID</b> tu ale není nová kniha – je to <b>odkaz</b> na kartu v tabulce Knihy. Tomu se říká <b>cizí klíč</b>.</p>
+      <div class="toolbar">
+        <div class="tb-row tb-row2" style="margin-top:0">
+          <label class="chk" style="padding:0"><input id="f-open" type="checkbox"> jen nevrácené</label>
+          <span class="shown" id="shown-Vypujcky"></span>
+          <span class="spacer"></span>
+          <span class="seg" data-seg><button data-view="cards" class="on">Karty</button><button data-view="table">Tabulka</button></span>
+        </div>
+      </div>
+      <div class="cards" id="cards-Vypujcky"></div>
+      <div id="table-Vypujcky" hidden></div>
+    </div>
+  </section>
+
+  <aside class="sql-side" id="sql-side">
+    <h2>Co se právě řeklo databázi</h2>
+    <p class="sub">Každé kliknutí se přeloží do jazyka databáze (SQL). Pod každým slovem je český překlad.</p>
+    <div class="legend">
+      <span><i style="background:var(--k-kw)"></i>co udělat</span>
+      <span><i style="background:var(--k-tbl)"></i>tabulka</span>
+      <span><i style="background:var(--k-col)"></i>sloupec</span>
+      <span><i style="background:var(--k-val)"></i>hodnota</span>
+    </div>
+    <div id="sql-current"><div class="placeholder">Klikni na cokoli vlevo – filtr, kartu, tlačítko – a tady uvidíš, jak to databáze dostala napsané.</div></div>
+
+    <div class="console">
+      <label for="console-input">Zkus to napsat sám/sama</label>
+      <div class="console-row">
+        <span>&gt;</span>
+        <input id="console-input" type="text" autocomplete="off" spellcheck="false" placeholder="SELECT * FROM Knihy WHERE Rok > 2000">
+        <button class="btn" id="btn-run">Spustit</button>
+      </div>
+      <p class="hint">U každého příkazu nahoře je tlačítko „Upravit v konzoli“ – příkaz se ti zkopíruje sem a stačí ho změnit. Nebo začni podle vzoru:</p>
+      <div class="templates" id="templates"></div>
+    </div>
+
+    <div class="history">
+      <h3>Historie příkazů</h3>
+      <ol id="history"></ol>
+    </div>
+  </aside>
+</main>
+
+<!-- Přidat / upravit knihu -->
+<div class="backdrop" id="form-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="form-title">
+    <h2 id="form-title">Přidat knihu</h2>
+    <p class="sub" id="form-sub"></p>
+    <div class="form-grid">
+      <label>Číslo knihy <span class="cl">Kniha_ID</span><input id="in-id" type="number"><span class="note" id="id-note"></span></label>
+      <label>Dostupnost <span class="cl">K_dispozici</span>
+        <select id="in-dostupnost"><option value="Ano">Ano – v knihovně</option><option value="Ne">Ne – půjčená</option></select>
+      </label>
+      <label class="full">Název <span class="cl">Nazev</span><input id="in-nazev" type="text"></label>
+      <label class="full">Autor <span class="cl">Autor</span><input id="in-autor" type="text"></label>
+      <label>Žánr <span class="cl">Zanr</span><input id="in-zanr" type="text" list="genre-list"><datalist id="genre-list"></datalist></label>
+      <label>Rok vydání <span class="cl">Rok</span><input id="in-rok" type="number"></label>
+    </div>
+    <div class="preview">
+      <h3>Takhle to dostane databáze</h3>
+      <div id="form-preview"></div>
+    </div>
+    <div id="form-err"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" data-close>Zrušit</button>
+      <button class="btn primary" id="form-save">Vložit do databáze</button>
+    </div>
+  </div>
+</div>
+
+<!-- Půjčit knihu -->
+<div class="backdrop" id="lend-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="lend-title">
+    <h2 id="lend-title">Půjčit knihu</h2>
+    <p class="sub" id="lend-sub"></p>
+    <div class="form-grid">
+      <label class="full">Kdo si knihu půjčuje? <span class="cl">Jmeno_zaka</span><input id="in-jmeno" type="text" placeholder="např. Jana Nováková"></label>
+    </div>
+    <div class="preview">
+      <h3>Jedna akce = dva příkazy pro databázi</h3>
+      <div id="lend-preview"></div>
+    </div>
+    <div id="lend-err"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" data-close>Zrušit</button>
+      <button class="btn primary" id="lend-save">Půjčit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Průvodce -->
+<div class="backdrop" id="intro-modal">
+  <div class="modal intro" role="dialog" aria-modal="true" aria-labelledby="intro-h">
+    <div id="intro-body"></div>
+    <div class="intro-foot">
+      <div class="dots" id="intro-dots"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn ghost" id="intro-skip">Přeskočit</button>
+        <button class="btn ghost" id="intro-back">Zpět</button>
+        <button class="btn primary" id="intro-next">Dál</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Mise -->
+<aside class="drawer" id="drawer" aria-label="Mise">
+  <div class="drawer-head">
+    <div class="row"><h2>Mise</h2><button class="btn small ghost" id="drawer-close">Zavřít</button></div>
+    <div class="progress"><i id="mission-bar"></i></div>
+    <div class="sub" id="mission-sub" style="margin:0"></div>
+  </div>
+  <div class="drawer-body">
+    <div id="mission-list"></div>
+    <div class="drawer-foot">Hotovo? Udělej snímek obrazovky tohohle seznamu (klávesy <b>Win + Shift + S</b>) a vlož ho do zadání v Teams.</div>
+  </div>
+</aside>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+'use strict';
+const $=(s,el)=>(el||document).querySelector(s);
+const $$=(s,el)=>[...(el||document).querySelectorAll(s)];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const N=v=>({k:'num',v});
+const S=v=>({k:'str',v:String(v)});
+const plural=(n,one,few,many)=>n===1?one:(n>=2&&n<=4?few:many);
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+function E(code,title,why,fix){return {code,title,why,fix};}
+
+/* ---------------- Schéma a data ---------------- */
+const SCHEMA={
+  Knihy:{label:'Knihy',pk:'Kniha_ID',cols:[
+    {n:'Kniha_ID',t:'num',g:'číslo knihy (ID)'},
+    {n:'Nazev',t:'str',g:'název'},
+    {n:'Autor',t:'str',g:'autor'},
+    {n:'Zanr',t:'str',g:'žánr'},
+    {n:'Rok',t:'num',g:'rok vydání'},
+    {n:'K_dispozici',t:'enum',vals:['Ano','Ne'],g:'dostupnost'}]},
+  Vypujcky:{label:'Výpůjčky',pk:'Vypujcka_ID',cols:[
+    {n:'Vypujcka_ID',t:'num',g:'číslo výpůjčky (ID)'},
+    {n:'Kniha_ID',t:'num',fk:'Knihy',g:'číslo knihy (odkaz)'},
+    {n:'Jmeno_zaka',t:'str',g:'jméno žáka'},
+    {n:'Datum_vypujceni',t:'str',g:'datum výpůjčky'},
+    {n:'Vraceno',t:'enum',vals:['Ano','Ne'],g:'vráceno'}]}
+};
+const INITIAL={
+  Knihy:[
+    {Kniha_ID:1,Nazev:'Harry Potter a Kámen mudrců',Autor:'J. K. Rowlingová',Zanr:'Fantasy',Rok:1997,K_dispozici:'Ne'},
+    {Kniha_ID:2,Nazev:'Deník malého poseroutky',Autor:'Jeff Kinney',Zanr:'Humor',Rok:2007,K_dispozici:'Ano'},
+    {Kniha_ID:3,Nazev:'Hobit',Autor:'J. R. R. Tolkien',Zanr:'Fantasy',Rok:1937,K_dispozici:'Ano'},
+    {Kniha_ID:4,Nazev:'Enderova hra',Autor:'Orson Scott Card',Zanr:'Sci-fi',Rok:1985,K_dispozici:'Ano'},
+    {Kniha_ID:5,Nazev:'A pak už tam nikdo nebyl',Autor:'Agatha Christie',Zanr:'Detektivka',Rok:1939,K_dispozici:'Ne'},
+    {Kniha_ID:6,Nazev:'Deník Anne Frankové',Autor:'Anne Franková',Zanr:'Historický',Rok:1947,K_dispozici:'Ano'},
+    {Kniha_ID:7,Nazev:'Percy Jackson – Zloděj blesku',Autor:'Rick Riordan',Zanr:'Fantasy',Rok:2005,K_dispozici:'Ano'},
+    {Kniha_ID:8,Nazev:'Marťan',Autor:'Andy Weir',Zanr:'Sci-fi',Rok:2011,K_dispozici:'Ne'},
+    {Kniha_ID:9,Nazev:'Studie v šarlatové',Autor:'Arthur Conan Doyle',Zanr:'Detektivka',Rok:1887,K_dispozici:'Ano'},
+    {Kniha_ID:10,Nazev:'Hunger Games',Autor:'Suzanne Collins',Zanr:'Young adult',Rok:2008,K_dispozici:'Ano'},
+    {Kniha_ID:11,Nazev:'Malý princ',Autor:'Antoine de Saint-Exupéry',Zanr:'Pohádka',Rok:1943,K_dispozici:'Ano'},
+    {Kniha_ID:12,Nazev:'Záhada hlavolamu',Autor:'Jaroslav Foglar',Zanr:'Dobrodružný',Rok:1941,K_dispozici:'Ano'}
+  ],
+  Vypujcky:[
+    {Vypujcka_ID:1,Kniha_ID:1,Jmeno_zaka:'Tomáš Novák',Datum_vypujceni:'2026-09-28',Vraceno:'Ne'},
+    {Vypujcka_ID:2,Kniha_ID:5,Jmeno_zaka:'Klára Dvořáková',Datum_vypujceni:'2026-09-30',Vraceno:'Ne'},
+    {Vypujcka_ID:3,Kniha_ID:8,Jmeno_zaka:'Matěj Procházka',Datum_vypujceni:'2026-10-01',Vraceno:'Ne'},
+    {Vypujcka_ID:4,Kniha_ID:3,Jmeno_zaka:'Eliška Malá',Datum_vypujceni:'2026-09-10',Vraceno:'Ano'},
+    {Vypujcka_ID:5,Kniha_ID:6,Jmeno_zaka:'Jakub Veselý',Datum_vypujceni:'2026-09-15',Vraceno:'Ano'}
+  ]
+};
+let db=JSON.parse(JSON.stringify(INITIAL));
+
+const tableKey=n=>Object.keys(SCHEMA).find(t=>t.toLowerCase()===String(n).toLowerCase());
+const colDef=(t,n)=>SCHEMA[t].cols.find(c=>c.n.toLowerCase()===String(n).toLowerCase());
+const nextId=t=>db[t].reduce((m,r)=>Math.max(m,r[SCHEMA[t].pk]),0)+1;
+const valText=v=>v.k==='str'?"'"+v.v+"'":(v.k==='raw'&&v.v===''?'?':String(v.v));
+const errCol=(t,n)=>E('column',`Sloupec „${n}“ v tabulce ${t} není`,`Tabulka ${t} má tyhle sloupce: ${SCHEMA[t].cols.map(c=>c.n).join(', ')}.`,'Názvy sloupců se píšou bez háčků a čárek – přesně jako na kartách (malým šedým písmem).');
+const describe=(t,r)=>t==='Knihy'?`„${r.Nazev}“`:`č. ${r.Vypujcka_ID} (${r.Jmeno_zaka})`;
+
+/* ---------------- Databázový stroj ---------------- */
+function checkValue(cd,val){
+  if(val===undefined) return {err:E('missing',`Chybí hodnota pro ${cd.n}`,'Každý sloupec potřebuje hodnotu.','Doplň ji.')};
+  if(cd.t==='num'){
+    if(val.k!=='num') return {err:E('type',`Sloupec ${cd.n} čeká číslo`,`Do sloupce ${cd.n} (${cd.g}) patří jen číslo, ale dostal ${val.k==='raw'&&val.v===''?'prázdnou hodnotu':valText(val)}.`,val.k==='str'?'Čísla se píšou bez apostrofů, třeba 2020.':'Napiš tam číslo.')};
+    return {v:val.v};
+  }
+  if(cd.t==='enum'){
+    const s=String(val.v).trim();
+    const hit=cd.vals.find(x=>x.toLowerCase()===s.toLowerCase());
+    if(!hit) return {err:E('enum',`Sloupec ${cd.n} zná jen ${cd.vals.map(x=>"'"+x+"'").join(' nebo ')}`,`Některé sloupce smí obsahovat jen pár předem daných hodnot. U sloupce ${cd.n} (${cd.g}) je to ${cd.vals.join(' nebo ')}, ale dostal ${valText(val)}.`,`Použij třeba '${cd.vals[0]}'.`)};
+    if(val.k!=='str') return {err:E('type','Text musí být v apostrofech',`Hodnota ${val.v} je text, ale chybí kolem ní apostrofy.`,`Napiš ji takhle: '${hit}'`)};
+    return {v:hit};
+  }
+  if(val.k!=='str') return {err:E('type','Text musí být v apostrofech',`Hodnota ${val.v} pro sloupec ${cd.n} je text, ale chybí kolem ní apostrofy.`,`Napiš ji takhle: '${val.v}'`)};
+  if(!val.v.trim()) return {err:E('empty',`Sloupec ${cd.n} nesmí být prázdný`,`Každý záznam musí mít vyplněný sloupec ${cd.n} (${cd.g}). Prázdná kolonka by v databázi dělala zmatek.`,'Vyplň ho.')};
+  return {v:val.v.trim()};
+}
+
+function prepWhere(t,where){
+  const out=[];
+  for(const c of where){
+    const cd=colDef(t,c.col); if(!cd) return {err:errCol(t,c.col)};
+    const op=c.op.toUpperCase()==='<>'?'!=':c.op.toUpperCase();
+    if(op==='LIKE'){
+      if(c.val.k!=='str') return {err:E('type','LIKE potřebuje text','Za LIKE patří text v apostrofech. Znak % znamená „cokoli“.',"Třeba: Nazev LIKE '%Harry%'")};
+      const re=new RegExp('^'+c.val.v.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/%/g,'.*').replace(/_/g,'.')+'$','i');
+      out.push({cd,op,re}); continue;
+    }
+    if(cd.t==='num'){
+      if(c.val.k!=='num') return {err:E('type',`${cd.n} je číslo`,`Sloupec ${cd.n} obsahuje čísla, takže ho porovnávej s číslem – bez apostrofů.`,`Třeba: ${cd.n} ${op} 2000`)};
+      out.push({cd,op,cv:c.val.v}); continue;
+    }
+    if(c.val.k!=='str') return {err:E('type','Text musí být v apostrofech',`Hodnotu ${c.val.v} databáze nezná. Text se vždycky píše do apostrofů.`,`Napiš '${c.val.v}'`)};
+    out.push({cd,op,cv:c.val.v});
+  }
+  return {conds:out};
+}
+function rowMatch(row,conds){
+  return conds.every(({cd,op,cv,re})=>{
+    const rv=row[cd.n];
+    if(op==='LIKE') return re.test(String(rv));
+    const cmp=cd.t==='num'?rv-cv:String(rv).localeCompare(String(cv),'cs',{sensitivity:'base'});
+    switch(op){case '=':return cmp===0;case '!=':return cmp!==0;case '>':return cmp>0;case '<':return cmp<0;case '>=':return cmp>=0;case '<=':return cmp<=0;}
+    return false;
+  });
+}
+function checkFK(t,row){
+  for(const cd of SCHEMA[t].cols){
+    if(!cd.fk) continue;
+    const pk=SCHEMA[cd.fk].pk;
+    if(!db[cd.fk].some(r=>r[pk]===row[cd.n])) return E('fk_missing',`Kniha s ID ${row[cd.n]} neexistuje`,`Sloupec ${cd.n} je cizí klíč – odkazuje na záznam v tabulce ${cd.fk}. Databáze nedovolí odkaz na něco, co neexistuje.`,`Podívej se do tabulky ${cd.fk}, jaká ID tam opravdu jsou.`);
+  }
+  return null;
+}
+function refsTo(t,r){
+  for(const t2 of Object.keys(SCHEMA)) for(const cd of SCHEMA[t2].cols){
+    if(cd.fk!==t) continue;
+    const ref=db[t2].find(x=>x[cd.n]===r[SCHEMA[t].pk]);
+    if(ref) return {table:t2,col:cd.n,row:ref};
+  }
+  return null;
+}
+
+function execute(cmd){
+  const t=tableKey(cmd.table);
+  if(!t) return {ok:false,err:E('table',`Tabulka „${cmd.table}“ neexistuje`,'V téhle databázi jsou jen dvě tabulky: Knihy a Vypujcky.','Zkontroluj, jak jsi napsal(a) název tabulky – bez háčků a čárek.')};
+  cmd.table=t;
+  const T=SCHEMA[t], rows=db[t];
+
+  if(cmd.type==='select'){
+    let cols;
+    if(cmd.cols==='*') cols=T.cols.map(c=>c.n);
+    else { cols=[]; for(const c of cmd.cols){const cd=colDef(t,c); if(!cd) return {ok:false,err:errCol(t,c)}; cols.push(cd.n);} }
+    const w=prepWhere(t,cmd.where); if(w.err) return {ok:false,err:w.err};
+    let out=rows.filter(r=>rowMatch(r,w.conds));
+    if(cmd.order){
+      const cd=colDef(t,cmd.order.col); if(!cd) return {ok:false,err:errCol(t,cmd.order.col)};
+      const dir=cmd.order.dir==='DESC'?-1:1;
+      out=out.slice().sort((a,b)=>(cd.t==='num'?a[cd.n]-b[cd.n]:String(a[cd.n]).localeCompare(String(b[cd.n]),'cs'))*dir);
+    }
+    return {ok:true,cols,rows:out};
+  }
+
+  if(cmd.type==='insert'){
+    const norm={};
+    for(const c of Object.keys(cmd.values)){const cd=colDef(t,c); if(!cd) return {ok:false,err:errCol(t,c)}; norm[cd.n]=cmd.values[c];}
+    const missing=T.cols.filter(cd=>!(cd.n in norm)).map(cd=>cd.n);
+    if(missing.length) return {ok:false,err:E('missing','Chybí některé sloupce',`V téhle databázi musí mít každý záznam vyplněné všechny sloupce. Chybí: ${missing.join(', ')}.`,'Doplň je do závorky se sloupci i s hodnotou.')};
+    const row={};
+    for(const cd of T.cols){const r=checkValue(cd,norm[cd.n]); if(r.err) return {ok:false,err:r.err}; row[cd.n]=r.v;}
+    const dup=rows.find(r=>r[T.pk]===row[T.pk]);
+    if(dup) return {ok:false,err:E('pk_dup',`${T.pk} = ${row[T.pk]} už v tabulce je`,`Každý záznam musí mít své vlastní ID, které nemá nikdo jiný. Tomu se říká primární klíč – podle něj databáze pozná, který záznam je který. Číslo ${row[T.pk]} už patří záznamu ${describe(t,dup)}.`,`Zvol jiné číslo – volné je třeba ${nextId(t)}.`)};
+    const fe=checkFK(t,row); if(fe) return {ok:false,err:fe};
+    rows.push(row);
+    return {ok:true,affected:[row]};
+  }
+
+  if(cmd.type==='update'){
+    const set={};
+    for(const c of Object.keys(cmd.set)){
+      const cd=colDef(t,c); if(!cd) return {ok:false,err:errCol(t,c)};
+      if(cd.n===T.pk) return {ok:false,err:E('pk_change',`${T.pk} se nemění`,`${T.pk} je primární klíč – takové „rodné číslo“ záznamu. Kdyby se změnilo, rozbily by se odkazy na tenhle záznam z jiných tabulek. Proto ho tady upravovat nejde.`,'Uprav jiné sloupce. Když opravdu potřebuješ jiné číslo, záznam smaž a vlož znovu.')};
+      const r=checkValue(cd,cmd.set[c]); if(r.err) return {ok:false,err:r.err};
+      set[cd.n]=r.v;
+    }
+    if(!cmd.where.length) return {ok:false,err:E('no_where','Chybí WHERE','UPDATE bez WHERE by změnil úplně všechny záznamy v tabulce najednou. V opravdové databázi by se to opravdu stalo – a byla by to katastrofa. Tenhle simulátor to schválně nedovolí.',`Vždycky řekni, KTERÝ záznam chceš změnit, třeba: WHERE ${T.pk} = 3`)};
+    const w=prepWhere(t,cmd.where); if(w.err) return {ok:false,err:w.err};
+    const hit=rows.filter(r=>rowMatch(r,w.conds));
+    for(const r of hit){const fe=checkFK(t,Object.assign({},r,set)); if(fe) return {ok:false,err:fe};}
+    hit.forEach(r=>Object.assign(r,set));
+    return {ok:true,affected:hit};
+  }
+
+  if(cmd.type==='delete'){
+    if(!cmd.where.length) return {ok:false,err:E('no_where','Chybí WHERE',`DELETE FROM ${t} bez WHERE by smazal úplně všechny záznamy v tabulce. V opravdové databázi by se to opravdu stalo – a byla by to katastrofa. Tenhle simulátor to schválně nedovolí.`,`Vždycky řekni, KTERÝ záznam chceš smazat, třeba: DELETE FROM ${t} WHERE ${T.pk} = 2`)};
+    const w=prepWhere(t,cmd.where); if(w.err) return {ok:false,err:w.err};
+    const hit=rows.filter(r=>rowMatch(r,w.conds));
+    for(const r of hit){
+      const used=refsTo(t,r);
+      if(used) return {ok:false,err:E('fk_used',`Záznam ${describe(t,r)} nejde smazat`,`V tabulce ${used.table} je záznam č. ${used.row[SCHEMA[used.table].pk]}, který na něj odkazuje (sloupec ${used.col} = ${r[T.pk]}). Kdyby záznam zmizel, odkaz by vedl do prázdna. Databáze proto hlídá, aby žádný odkaz nevedl na neexistující záznam – tomu se říká referenční integrita.`,used.table==='Vypujcky'?'Knihu by šlo smazat, až by zmizely i všechny výpůjčky, které na ni odkazují. Knihovna si je ale nechává jako historii – zkus smazat knihu, kterou si ještě nikdo nepůjčil.':'Nejdřív smaž záznamy, které na něj odkazují.')};
+    }
+    db[t]=rows.filter(r=>!hit.includes(r));
+    return {ok:true,affected:hit};
+  }
+  return {ok:false,err:E('syntax','Neznámý příkaz','Tomuhle příkazu databáze nerozumí.','Zkus SELECT, INSERT, UPDATE nebo DELETE.')};
+}
+
+/* ---------------- Parser pro konzoli ---------------- */
+function parseSQL(text){
+  const fail=(t,w,f)=>({ok:false,err:E('syntax',t,w,f)});
+  const s=text.trim().replace(/;+\s*$/,'');
+  if(((s.match(/'/g)||[]).length)%2) return fail('Chybí apostrof','Každý text musí mít apostrof na začátku i na konci – jeden tam chybí.',"Zkontroluj zápis, správně je třeba 'Fantasy'.");
+  const lits=[];
+  const m=s.replace(/'([^']*)'/g,(x,g)=>{lits.push(g);return '§'+(lits.length-1)+'§';}).replace(/\s+/g,' ').trim();
+  const restore=x=>x.replace(/§(\d+)§/g,(y,i)=>"'"+lits[+i]+"'");
+  const V=x=>{x=x.trim();const mm=x.match(/^§(\d+)§$/);if(mm)return S(lits[+mm[1]]);if(/^-?\d+(\.\d+)?$/.test(x))return N(parseFloat(x));return {k:'raw',v:restore(x)};};
+  const conds=w=>{
+    if(!w) return [];
+    return w.split(/ AND /i).map(p=>{
+      p=p.trim();
+      const mm=p.match(/^([A-Za-z_]+) ?(<=|>=|<>|!=|=|<|>) ?(.+)$/)||p.match(/^([A-Za-z_]+) (LIKE) (.+)$/i);
+      if(!mm) throw restore(p);
+      let op=mm[2].toUpperCase(); if(op==='<>') op='!=';
+      return {col:mm[1],op,val:V(mm[3])};
+    });
+  };
+  try{
+    let mm;
+    if(/^SELECT\b/i.test(m)){
+      mm=m.match(/^SELECT (.+?) FROM ([A-Za-z_]+)(?: WHERE (.+?))?(?: ORDER BY ([A-Za-z_]+)(?: (ASC|DESC))?)?$/i);
+      if(!mm) return fail('SELECT nesedí na vzor','Příkaz SELECT má tvar: SELECT co FROM tabulka – případně ještě WHERE podmínka a ORDER BY sloupec.','Zkus třeba: SELECT * FROM Knihy WHERE Rok > 2000');
+      const cols=mm[1].trim()==='*'?'*':mm[1].split(',').map(x=>x.trim());
+      return {ok:true,cmd:{type:'select',table:mm[2],cols,where:conds(mm[3]),order:mm[4]?{col:mm[4],dir:(mm[5]||'ASC').toUpperCase()}:null}};
+    }
+    if(/^INSERT\b/i.test(m)){
+      mm=m.match(/^INSERT INTO ([A-Za-z_]+) ?\(([^)]*)\) ?VALUES ?\(([^)]*)\)$/i);
+      if(!mm) return fail('INSERT nesedí na vzor','Příkaz INSERT má tvar: INSERT INTO tabulka (sloupce) VALUES (hodnoty).','Nejjednodušší je přidat knihu tlačítkem a pak její příkaz upravit v konzoli.');
+      const cols=mm[2].split(',').map(x=>x.trim()).filter(Boolean), vals=mm[3].split(',').map(x=>x.trim());
+      if(cols.length!==vals.length) return fail('Nesedí počet sloupců a hodnot',`Vyjmenoval(a) jsi ${cols.length} sloupců, ale ${vals.length} hodnot. Každý sloupec potřebuje právě jednu hodnotu – ve stejném pořadí.`,'Spočítej čárky v obou závorkách.');
+      const values={}; cols.forEach((c,i)=>values[c]=V(vals[i]));
+      return {ok:true,cmd:{type:'insert',table:mm[1],values}};
+    }
+    if(/^UPDATE\b/i.test(m)){
+      mm=m.match(/^UPDATE ([A-Za-z_]+) SET (.+?)(?: WHERE (.+))?$/i);
+      if(!mm) return fail('UPDATE nesedí na vzor','Příkaz UPDATE má tvar: UPDATE tabulka SET sloupec = hodnota WHERE podmínka.','Zkus třeba: UPDATE Knihy SET Rok = 2001 WHERE Kniha_ID = 2');
+      const set={};
+      for(const part of mm[2].split(',')){const pm=part.trim().match(/^([A-Za-z_]+) ?= ?(.+)$/); if(!pm) throw restore(part.trim()); set[pm[1]]=V(pm[2]);}
+      return {ok:true,cmd:{type:'update',table:mm[1],set,where:conds(mm[3])}};
+    }
+    if(/^DELETE\b/i.test(m)){
+      mm=m.match(/^DELETE FROM ([A-Za-z_]+)(?: WHERE (.+))?$/i);
+      if(!mm) return fail('DELETE nesedí na vzor','Příkaz DELETE má tvar: DELETE FROM tabulka WHERE podmínka.','Zkus třeba: DELETE FROM Knihy WHERE Kniha_ID = 12');
+      return {ok:true,cmd:{type:'delete',table:mm[1],where:conds(mm[2])}};
+    }
+    return fail('Tenhle příkaz databáze nezná','Databáze rozumí příkazům, které začínají slovy SELECT (vyber), INSERT (vlož), UPDATE (uprav) nebo DELETE (smaž).','Zkus třeba: SELECT * FROM Knihy');
+  }catch(bad){
+    return fail('Téhle části nerozumím',`Část „${bad}“ nesedí. Podmínka má tvar SLOUPEC OPERÁTOR HODNOTA.`,"Třeba: Zanr = 'Fantasy' nebo Rok > 2000");
+  }
+}
+
+/* ---------------- Překlad příkazu do češtiny ---------------- */
+const OPG={'=':'je','!=':'není','>':'je větší než','<':'je menší než','>=':'je aspoň','<=':'je nejvýš','LIKE':'obsahuje'};
+const tk=(t,g,k)=>({t,g,k});
+const glossVal=(v,op)=>op==='LIKE'&&v.k==='str'?'„'+v.v.replace(/%/g,'')+'“':(v.k==='str'?'„'+v.v+'“':(v.k==='raw'&&v.v===''?'?':String(v.v)));
+function colTok(t,n){const cd=t&&colDef(t,n);return tk(cd?cd.n:n,cd?cd.g:'?','col');}
+function condToks(t,where){
+  const out=[];
+  where.forEach((c,i)=>{
+    if(i) out.push(tk('AND','a zároveň','kw'));
+    out.push(colTok(t,c.col),tk(c.op,OPG[c.op]||c.op,'op'),tk(valText(c.val),glossVal(c.val,c.op),'val'));
+  });
+  return out;
+}
+function cmdTokens(cmd){
+  const t=tableKey(cmd.table), tn=t||cmd.table, tg=t?SCHEMA[t].label:'?';
+  if(cmd.type==='select'){
+    const o=[tk('SELECT','vyber','kw')];
+    if(cmd.cols==='*') o.push(tk('*','všechny sloupce','col'));
+    else cmd.cols.forEach((c,i)=>{const x=colTok(t,c); if(i<cmd.cols.length-1) x.t+=','; o.push(x);});
+    o.push(tk('FROM','z tabulky','kw'),tk(tn,tg,'tbl'));
+    if(cmd.where.length) o.push(tk('WHERE','jen tam, kde','kw'),...condToks(t,cmd.where));
+    if(cmd.order){
+      const cd=t&&colDef(t,cmd.order.col), num=cd&&cd.t==='num';
+      o.push(tk('ORDER BY','seřaď podle','kw'),colTok(t,cmd.order.col),
+        tk(cmd.order.dir,cmd.order.dir==='DESC'?(num?'od největšího':'od Z do A'):(num?'od nejmenšího':'od A do Z'),'kw'));
+    }
+    return o;
+  }
+  if(cmd.type==='insert'){
+    const cols=Object.keys(cmd.values);
+    return [tk('INSERT INTO','vlož do tabulky','kw'),tk(tn,tg,'tbl'),
+      tk('('+cols.join(', ')+')','do těchto sloupců','col'),tk('VALUES','tyhle hodnoty','kw'),
+      tk('('+cols.map(c=>valText(cmd.values[c])).join(', ')+')','ve stejném pořadí','val')];
+  }
+  if(cmd.type==='update'){
+    const o=[tk('UPDATE','uprav v tabulce','kw'),tk(tn,tg,'tbl'),tk('SET','nastav','kw')];
+    const keys=Object.keys(cmd.set);
+    keys.forEach((c,i)=>{o.push(colTok(t,c),tk('=','na','op'));const v=tk(valText(cmd.set[c]),glossVal(cmd.set[c]),'val');if(i<keys.length-1)v.t+=',';o.push(v);});
+    if(cmd.where.length) o.push(tk('WHERE','jen tam, kde','kw'),...condToks(t,cmd.where));
+    return o;
+  }
+  if(cmd.type==='delete'){
+    const o=[tk('DELETE FROM','smaž z tabulky','kw'),tk(tn,tg,'tbl')];
+    if(cmd.where.length) o.push(tk('WHERE','jen tam, kde','kw'),...condToks(t,cmd.where));
+    return o;
+  }
+  return [];
+}
+const sqlText=cmd=>cmdTokens(cmd).map(x=>x.t).join(' ');
+const glossHTML=toks=>'<div class="gloss">'+toks.map(x=>`<span class="g g-${x.k}"><code>${esc(x.t)}</code><small>${esc(x.g)}</small></span>`).join('')+'</div>';
+
+/* ---------------- Mise ---------------- */
+const isCmd=(e,type,t)=>e.cmd&&e.cmd.type===type&&tableKey(e.cmd.table)===t;
+const whereHas=(e,col,fn)=>(e.cmd.where||[]).some(c=>c.col.toLowerCase()===col.toLowerCase()&&fn(c));
+const MISSIONS=[
+  {id:'fantasy',title:'Najdi všechny knihy žánru Fantasy.',hint:'Použij výběr „Žánr“ nad kartami. Pak se podívej vpravo, jak vypadá příkaz.',
+   test:e=>isCmd(e,'select','Knihy')&&e.res.ok&&whereHas(e,'Zanr',c=>c.op==='='&&c.val.k==='str'&&c.val.v.toLowerCase()==='fantasy')},
+  {id:'novinky',title:'Zobraz jen knihy vydané po roce 2000, seřazené od nejnovější.',hint:'Zkombinuj „Vydáno po roce“ a „Seřadit: od nejnovější“.',
+   test:e=>isCmd(e,'select','Knihy')&&e.res.ok&&whereHas(e,'Rok',c=>(c.op==='>'||c.op==='>=')&&c.val.k==='num'&&c.val.v>=1999)&&e.cmd.order&&e.cmd.order.col.toLowerCase()==='rok'&&e.cmd.order.dir==='DESC'},
+  {id:'add',title:'Přidej do knihovny novou knihu.',hint:'Tlačítko „+ Přidat knihu“. Sleduj, jak vzniká příkaz INSERT.',
+   test:e=>isCmd(e,'insert','Knihy')&&e.res.ok},
+  {id:'pk',title:'Zkus přidat knihu s číslem (ID), které už v knihovně je. Co databáze odpoví?',hint:'V okně „Přidat knihu“ přepiš číslo knihy třeba na 1.',
+   test:e=>isCmd(e,'insert','Knihy')&&!e.res.ok&&e.res.err.code==='pk_dup'},
+  {id:'lend',title:'Půjč někomu knihu.',hint:'Na kartě dostupné knihy klikni na „Půjčit“. Všimni si, že jedna akce = dva příkazy.',
+   test:e=>isCmd(e,'insert','Vypujcky')&&e.res.ok},
+  {id:'fk',title:'Zkus smazat knihu, kterou má někdo půjčenou. Proč to nejde?',hint:'Půjčené knihy mají nahoře červené „K_dispozici: Ne“. Klikni u nich na „Smazat“.',
+   test:e=>isCmd(e,'delete','Knihy')&&!e.res.ok&&e.res.err.code==='fk_used'},
+  {id:'return',title:'Vrať půjčenou knihu.',hint:'Přepni na tabulku Výpůjčky a u nevrácené výpůjčky klikni na „Vrátit“.',
+   test:e=>isCmd(e,'update','Vypujcky')&&e.res.ok&&e.res.affected.length>0&&Object.keys(e.cmd.set).some(k=>k.toLowerCase()==='vraceno')},
+  {id:'console',title:'Napiš sám/sama do konzole příkaz, který najde knihy jednoho autora.',hint:"Vzor: SELECT * FROM Knihy WHERE Autor LIKE '%Tolkien%'",
+   test:e=>e.source==='console'&&isCmd(e,'select','Knihy')&&e.res.ok&&whereHas(e,'Autor',()=>true)}
+];
+
+/* ---------------- Stav aplikace ---------------- */
+const blankFilters=()=>({search:'',genre:'',year:'',avail:false,sort:'',id:null});
+const state={tab:'Knihy',view:'cards',f:blankFilters(),onlyOpen:false,ids:{Knihy:[],Vypujcky:[]},hl:{},done:new Set(),history:[]};
+
+function checkMissions(e){
+  const fresh=[];
+  MISSIONS.forEach(m=>{ if(state.done.has(m.id)) return; let ok=false; try{ok=!!m.test(e);}catch(_){} if(ok){state.done.add(m.id);fresh.push(m);} });
+  if(fresh.length){
+    renderMissions();
+    toast('Mise splněna: '+fresh[fresh.length-1].title);
+    if(state.done.size===MISSIONS.length) setTimeout(()=>toast('Všech '+MISSIONS.length+' misí je hotových! Otevři Mise a udělej si snímek obrazovky.',5000),3300);
+  }
+}
+function runCmd(cmd,source){const res=execute(cmd);checkMissions({cmd,res,source});return res;}
+
+/* ---------------- Vykreslování panelu s příkazy ---------------- */
+function dataTable(t,cols,rows,clsFn,extra){
+  return `<table class="dt ${extra||''}"><thead><tr>${cols.map(c=>{const cd=t&&colDef(t,c);return `<th>${esc(c)}${cd?`<small>${esc(cd.g)}</small>`:''}</th>`;}).join('')}</tr></thead><tbody>${rows.map(r=>`<tr class="${clsFn?clsFn(r):''}">${cols.map(c=>`<td>${esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+const stampHTML=err=>`<div class="stamp"><div class="stamp-title">Databáze to nedovolila</div><strong>${esc(err.title)}</strong><p><b>Proč:</b> ${esc(err.why)}</p><p><b>Co s tím:</b> ${esc(err.fix)}</p></div>`;
+function resultHTML(e){
+  const {cmd,res,source}=e;
+  if(!res.ok) return stampHTML(res.err);
+  const cnt=n=>`${n} ${plural(n,'záznam','záznamy','záznamů')}`;
+  if(cmd.type==='select'){
+    const n=res.rows.length;
+    return `<div class="okline">Databáze našla <b>${cnt(n)}</b>.${source==='console'?'':' Vidíš je vlevo.'}${source==='console'&&n?`<div class="tbl-wrap">${dataTable(cmd.table,res.cols,res.rows)}</div>`:''}</div>`;
+  }
+  const n=res.affected.length, cols=SCHEMA[cmd.table].cols.map(c=>c.n);
+  if(!n) return `<div class="okline">Podmínce WHERE neodpovídá žádný záznam, takže se nic ${cmd.type==='delete'?'nesmazalo':'nezměnilo'}. (To není chyba – jen nebylo co ${cmd.type==='delete'?'mazat':'měnit'}.)</div>`;
+  const msg={
+    insert:`Hotovo – do tabulky ${SCHEMA[cmd.table].label} přibyl nový záznam (řádek):`,
+    update:`Hotovo – ${plural(n,'upraven','upraveny','upraveno')} ${cnt(n)}. Takhle ${n===1?'vypadá':'vypadají'} teď:`,
+    delete:`Hotovo – ${plural(n,'smazán','smazány','smazáno')} ${cnt(n)}:`
+  }[cmd.type];
+  return `<div class="okline">${msg}<div class="tbl-wrap">${dataTable(cmd.table,cols,res.affected)}</div></div>`;
+}
+function showAction(title,entries){
+  const box=$('#sql-current');
+  box.innerHTML=`<div class="act-title">${esc(title)}</div>`+
+    (entries.length>1?`<p class="multi">Jedna akce = ${entries.length} ${plural(entries.length,'příkaz','příkazy','příkazů')} pro databázi:</p>`:'')+
+    entries.map((e,i)=>{
+      const sql=e.cmd?sqlText(e.cmd):e.raw;
+      return `<div class="cmd-block">${entries.length>1?`<div class="step">Příkaz ${i+1}</div>`:''}${e.cmd?glossHTML(cmdTokens(e.cmd)):`<pre class="raw">${esc(e.raw)}</pre>`}<div class="cmd-tools"><button class="linkbtn" data-sql="${esc(sql)}">Upravit v konzoli</button></div>${resultHTML(e)}</div>`;
+    }).join('');
+  entries.forEach(e=>pushHistory(e.cmd?sqlText(e.cmd):e.raw,e.res.ok));
+  $('#sql-side').scrollTop=0;
+}
+function showInfo(text){$('#sql-current').innerHTML=`<div class="placeholder">${esc(text)}</div>`;}
+function pushHistory(sql,ok){
+  state.history.unshift({sql,ok});
+  if(state.history.length>15) state.history.pop();
+  $('#history').innerHTML=state.history.map(h=>`<li><button data-sql="${esc(h.sql)}"><span class="dot ${h.ok?'ok':'err'}"></span>${esc(h.sql)}</button></li>`).join('');
+}
+function toConsole(sql){const i=$('#console-input');i.value=sql;i.focus();}
+$('#sql-current').addEventListener('click',e=>{const b=e.target.closest('[data-sql]');if(b) toConsole(b.dataset.sql);});
+$('#history').addEventListener('click',e=>{const b=e.target.closest('[data-sql]');if(b) toConsole(b.dataset.sql);});
+
+/* ---------------- Karty a tabulky ---------------- */
+function booksCmd(){
+  const f=state.f, where=[];
+  if(f.id!=null) where.push({col:'Kniha_ID',op:'=',val:N(f.id)});
+  if(f.search.trim()) where.push({col:'Nazev',op:'LIKE',val:S('%'+f.search.trim()+'%')});
+  if(f.genre) where.push({col:'Zanr',op:'=',val:S(f.genre)});
+  if(f.year!==''&&!isNaN(+f.year)) where.push({col:'Rok',op:'>',val:N(+f.year)});
+  if(f.avail) where.push({col:'K_dispozici',op:'=',val:S('Ano')});
+  let order=null; if(f.sort){const [c,d]=f.sort.split('|');order={col:c,dir:d};}
+  return {type:'select',table:'Knihy',cols:'*',where,order};
+}
+const loansCmd=()=>({type:'select',table:'Vypujcky',cols:'*',where:state.onlyOpen?[{col:'Vraceno',op:'=',val:S('Ne')}]:[],order:null});
+
+function refresh(t,logTitle){
+  const cmd=t==='Knihy'?booksCmd():loansCmd();
+  const res=logTitle?runCmd(cmd,'ui'):execute(cmd);
+  if(res.ok) state.ids[t]=res.rows.map(r=>r[SCHEMA[t].pk]);
+  if(logTitle) showAction(logTitle,[{cmd,res,source:'ui'}]);
+  render(t);
+}
+function refreshAll(){refresh('Knihy');refresh('Vypujcky');state.hl={};}
+
+function bookCard(r,c){
+  const yes=r.K_dispozici==='Ano';
+  return `<article class="card${c}" data-id="${r.Kniha_ID}">
+    <div class="card-top"><span class="pk" title="Primární klíč – jedinečné číslo záznamu">Kniha_ID<b>${r.Kniha_ID}</b></span><span class="pill ${yes?'yes':'no'}">K_dispozici: ${esc(r.K_dispozici)}</span></div>
+    <div class="field"><span class="cl">Nazev</span><h3>${esc(r.Nazev)}</h3></div>
+    <div class="field"><span class="cl">Autor</span><p>${esc(r.Autor)}</p></div>
+    <div class="field-row"><div class="field"><span class="cl">Zanr</span><p>${esc(r.Zanr)}</p></div><div class="field"><span class="cl">Rok</span><p>${esc(r.Rok)}</p></div></div>
+    <div class="card-actions"><button data-act="edit">Upravit</button><button data-act="lend" ${yes?'':'disabled title="Kniha je půjčená"'}>Půjčit</button><button data-act="delete" class="del">Smazat</button></div>
+  </article>`;
+}
+function loanCard(r,c){
+  const book=db.Knihy.find(b=>b.Kniha_ID===r.Kniha_ID), back=r.Vraceno==='Ano';
+  return `<article class="card${c}" data-id="${r.Vypujcka_ID}">
+    <div class="card-top"><span class="pk" title="Primární klíč – jedinečné číslo záznamu">Vypujcka_ID<b>${r.Vypujcka_ID}</b></span><span class="pill ${back?'yes':'no'}">Vraceno: ${esc(r.Vraceno)}</span></div>
+    <div class="field"><span class="cl">Jmeno_zaka</span><h3>${esc(r.Jmeno_zaka)}</h3></div>
+    <div class="field"><span class="cl">Kniha_ID · cizí klíč (odkaz na knihu)</span><div class="fk-link"><span class="fk-id">${r.Kniha_ID}</span><span>→ ${book?esc(book.Nazev):'<em>kniha neexistuje</em>'}</span></div></div>
+    <div class="field"><span class="cl">Datum_vypujceni</span><p>${esc(r.Datum_vypujceni)}</p></div>
+    <div class="card-actions"><button data-act="show">Ukaž knihu</button><button data-act="return" ${back?'disabled title="Už je vrácená"':''}>Vrátit</button></div>
+  </article>`;
+}
+function render(t){
+  const pk=SCHEMA[t].pk, all=db[t].length;
+  const rows=state.ids[t].map(id=>db[t].find(r=>r[pk]===id)).filter(Boolean);
+  $('#count-'+t).textContent='('+all+')';
+  $('#shown-'+t).textContent=`Zobrazeno ${rows.length} z ${all} ${plural(all,'záznamu','záznamů','záznamů')}`;
+  const hl=state.hl[t]||{ids:[],kind:''};
+  const cls=r=>hl.ids.includes(r[pk])?' hl-'+hl.kind:'';
+  const cardsEl=$('#cards-'+t), tblEl=$('#table-'+t);
+  const empty=`<div class="empty">Tomuhle výběru neodpovídá žádný záznam. Zkus „Zrušit výběr“.</div>`;
+  if(state.view==='cards'){
+    cardsEl.hidden=false; tblEl.hidden=true;
+    cardsEl.innerHTML=rows.length?rows.map(r=>t==='Knihy'?bookCard(r,cls(r)):loanCard(r,cls(r))).join(''):empty;
+  }else{
+    cardsEl.hidden=true; tblEl.hidden=false;
+    tblEl.innerHTML=rows.length?`<div class="tbl-wrap">${dataTable(t,SCHEMA[t].cols.map(c=>c.n),rows,r=>cls(r).trim())}</div><p class="hint">Tohle jsou stejné záznamy jako na kartách – jen tak, jak je databáze opravdu ukládá. Jeden řádek = jedna karta, jeden sloupec = jedna kolonka na všech kartách.</p>`:empty;
+  }
+  if(t==='Knihy') renderFilterChrome();
+}
+function renderFilterChrome(){
+  const genres=[...new Set(db.Knihy.map(b=>b.Zanr))].sort((a,b)=>a.localeCompare(b,'cs'));
+  const sel=$('#f-genre');
+  sel.innerHTML='<option value="">všechny</option>'+genres.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('');
+  sel.value=genres.includes(state.f.genre)?state.f.genre:'';
+  $('#genre-list').innerHTML=genres.map(g=>`<option value="${esc(g)}">`).join('');
+  const chip=$('#id-chip');
+  if(state.f.id!=null){chip.hidden=false;$('#id-chip-text').textContent='Jen kniha s ID '+state.f.id;}else chip.hidden=true;
+}
+function syncInputs(){
+  $('#f-search').value=state.f.search; $('#f-year').value=state.f.year;
+  $('#f-sort').value=state.f.sort; $('#f-avail').checked=state.f.avail; $('#f-open').checked=state.onlyOpen;
+}
+
+/* ---------------- Akce ---------------- */
+function doAction(title,cmds){
+  const entries=[]; state.hl={};
+  for(const cmd of cmds){
+    const res=runCmd(cmd,'ui'); entries.push({cmd,res,source:'ui'});
+    if(!res.ok) break;
+    if(cmd.type!=='delete'&&res.affected&&res.affected.length){
+      const pk=SCHEMA[cmd.table].pk;
+      state.hl[cmd.table]={ids:res.affected.map(r=>r[pk]),kind:cmd.type==='insert'?'new':'upd'};
+    }
+  }
+  showAction(title,entries);
+  const ins=entries.find(e=>e.res.ok&&e.cmd.type==='insert'&&e.cmd.table==='Knihy');
+  refreshAll();
+  if(ins&&!state.ids.Knihy.includes(ins.res.affected[0].Kniha_ID)) toast('Nová kniha je v databázi, jen ji teď skrývá tvůj výběr. Klikni na „Zrušit výběr“.',4500);
+  return entries;
+}
+const whereId=(col,id)=>[{col,op:'=',val:N(id)}];
+
+function deleteBook(r){doAction(`Tvoje akce: smazat knihu „${r.Nazev}“`,[{type:'delete',table:'Knihy',where:whereId('Kniha_ID',r.Kniha_ID)}]);}
+function returnLoan(r){
+  doAction(`Tvoje akce: ${r.Jmeno_zaka} vrací knihu`,[
+    {type:'update',table:'Vypujcky',set:{Vraceno:S('Ano')},where:whereId('Vypujcka_ID',r.Vypujcka_ID)},
+    {type:'update',table:'Knihy',set:{K_dispozici:S('Ano')},where:whereId('Kniha_ID',r.Kniha_ID)}
+  ]);
+}
+function showBook(id){
+  state.f=blankFilters(); state.f.id=id; syncInputs();
+  switchTab('Knihy',false);
+  refresh('Knihy',`Tvoje akce: ukázat knihu, na kterou výpůjčka odkazuje (Kniha_ID = ${id})`);
+}
+function switchTab(t,log){
+  state.tab=t;
+  $$('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
+  $('#pane-Knihy').hidden=t!=='Knihy'; $('#pane-Vypujcky').hidden=t!=='Vypujcky';
+  if(log!==false) refresh(t,t==='Knihy'?'Tvoje akce: otevřít tabulku Knihy':'Tvoje akce: otevřít tabulku Výpůjčky');
+}
+
+$('#cards-Knihy').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-act]'); if(!b||b.disabled) return;
+  const r=db.Knihy.find(x=>x.Kniha_ID===+b.closest('.card').dataset.id); if(!r) return;
+  if(b.dataset.act==='edit') openForm('edit',r);
+  if(b.dataset.act==='lend') openLend(r);
+  if(b.dataset.act==='delete') deleteBook(r);
+});
+$('#cards-Vypujcky').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-act]'); if(!b||b.disabled) return;
+  const r=db.Vypujcky.find(x=>x.Vypujcka_ID===+b.closest('.card').dataset.id); if(!r) return;
+  if(b.dataset.act==='show') showBook(r.Kniha_ID);
+  if(b.dataset.act==='return') returnLoan(r);
+});
+$$('.tab').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+
+/* filtry */
+let deb;
+const later=(fn)=>{clearTimeout(deb);deb=setTimeout(fn,450);};
+$('#f-search').addEventListener('input',e=>{state.f.search=e.target.value;later(()=>refresh('Knihy','Tvoje akce: hledání v názvu'));});
+$('#f-year').addEventListener('input',e=>{state.f.year=e.target.value;later(()=>refresh('Knihy','Tvoje akce: filtr podle roku vydání'));});
+$('#f-genre').addEventListener('change',e=>{state.f.genre=e.target.value;refresh('Knihy','Tvoje akce: výběr žánru');});
+$('#f-sort').addEventListener('change',e=>{state.f.sort=e.target.value;refresh('Knihy','Tvoje akce: řazení');});
+$('#f-avail').addEventListener('change',e=>{state.f.avail=e.target.checked;refresh('Knihy','Tvoje akce: jen dostupné knihy');});
+$('#f-open').addEventListener('change',e=>{state.onlyOpen=e.target.checked;refresh('Vypujcky','Tvoje akce: jen nevrácené výpůjčky');});
+$('#btn-clear').addEventListener('click',()=>{state.f=blankFilters();syncInputs();refresh('Knihy','Tvoje akce: zrušit výběr – ukázat všechny knihy');});
+$('#id-chip-x').addEventListener('click',()=>{state.f.id=null;refresh('Knihy','Tvoje akce: zrušit výběr jedné knihy');});
+$$('[data-seg] button').forEach(b=>b.addEventListener('click',()=>{
+  state.view=b.dataset.view;
+  $$('[data-seg] button').forEach(x=>x.classList.toggle('on',x.dataset.view===state.view));
+  render('Knihy');render('Vypujcky');
+}));
+$('#btn-delete-all').addEventListener('click',()=>doAction('Tvoje akce: smazat všechny knihy',[{type:'delete',table:'Knihy',where:[]}]));
+$('#btn-reset').addEventListener('click',()=>{
+  db=JSON.parse(JSON.stringify(INITIAL)); state.f=blankFilters(); state.onlyOpen=false; syncInputs(); refreshAll();
+  showInfo('Knihovna je zase jako na začátku. Postup v misích ti zůstal.'); toast('Knihovna obnovena.');
+});
+
+/* ---------------- Formulář knihy ---------------- */
+let formCtx=null;
+const numOrRaw=s=>s===''?{k:'raw',v:''}:(isNaN(+s)?{k:'raw',v:s}:N(+s));
+function formCmd(){
+  const vals={Kniha_ID:numOrRaw($('#in-id').value.trim()),Nazev:S($('#in-nazev').value.trim()),Autor:S($('#in-autor').value.trim()),
+    Zanr:S($('#in-zanr').value.trim()),Rok:numOrRaw($('#in-rok').value.trim()),K_dispozici:S($('#in-dostupnost').value)};
+  if(formCtx.mode==='add') return {type:'insert',table:'Knihy',values:vals};
+  const r=formCtx.r, set={};
+  ['Nazev','Autor','Zanr'].forEach(c=>{if(vals[c].v!==r[c]) set[c]=vals[c];});
+  if(!(vals.Rok.k==='num'&&vals.Rok.v===r.Rok)) set.Rok=vals.Rok;
+  if(vals.K_dispozici.v!==r.K_dispozici) set.K_dispozici=vals.K_dispozici;
+  if(!Object.keys(set).length) return null;
+  return {type:'update',table:'Knihy',set,where:whereId('Kniha_ID',r.Kniha_ID)};
+}
+function updatePreview(){
+  const cmd=formCmd();
+  $('#form-preview').innerHTML=cmd?glossHTML(cmdTokens(cmd)):'<p class="hint">Zatím jsi nic nezměnil(a) – databáze by nedostala žádný příkaz.</p>';
+}
+function openForm(mode,r){
+  formCtx={mode,r};
+  const add=mode==='add';
+  $('#form-title').textContent=add?'Přidat knihu':'Upravit knihu';
+  $('#form-sub').textContent=add?'Vyplň kolonky. Dole uvidíš, jak se z nich skládá příkaz INSERT.':'Změň, co potřebuješ. Dole uvidíš příkaz UPDATE – obsahuje jen to, co se změnilo.';
+  const v=add?{Kniha_ID:nextId('Knihy'),Nazev:'',Autor:'',Zanr:'',Rok:'',K_dispozici:'Ano'}:r;
+  $('#in-id').value=v.Kniha_ID; $('#in-id').disabled=!add;
+  $('#id-note').textContent=add?'Primární klíč – musí být jedinečné. Předvyplnili jsme první volné číslo.':'Primární klíč se nemění – je to „rodné číslo“ záznamu.';
+  $('#in-nazev').value=v.Nazev; $('#in-autor').value=v.Autor; $('#in-zanr').value=v.Zanr; $('#in-rok').value=v.Rok; $('#in-dostupnost').value=v.K_dispozici;
+  $('#form-err').innerHTML='';
+  $('#form-save').textContent=add?'Vložit do databáze':'Uložit změny';
+  updatePreview(); openModal('#form-modal');
+  setTimeout(()=>$('#in-nazev').focus(),60);
+}
+$$('#form-modal input, #form-modal select').forEach(i=>i.addEventListener('input',updatePreview));
+$('#form-save').addEventListener('click',()=>{
+  const cmd=formCmd(); if(!cmd){closeModals();return;}
+  const entries=doAction(formCtx.mode==='add'?'Tvoje akce: přidat knihu':`Tvoje akce: upravit knihu „${formCtx.r.Nazev}“`,[cmd]);
+  const bad=entries.find(e=>!e.res.ok);
+  if(bad) $('#form-err').innerHTML=stampHTML(bad.res.err); else closeModals();
+});
+$('#btn-add').addEventListener('click',()=>openForm('add'));
+
+/* ---------------- Půjčení ---------------- */
+let lendBook=null;
+function lendCmds(){
+  const r=lendBook;
+  return [
+    {type:'insert',table:'Vypujcky',values:{Vypujcka_ID:N(nextId('Vypujcky')),Kniha_ID:N(r.Kniha_ID),Jmeno_zaka:S($('#in-jmeno').value.trim()),Datum_vypujceni:S(today()),Vraceno:S('Ne')}},
+    {type:'update',table:'Knihy',set:{K_dispozici:S('Ne')},where:whereId('Kniha_ID',r.Kniha_ID)}
+  ];
+}
+function updateLendPreview(){
+  $('#lend-preview').innerHTML=lendCmds().map((c,i)=>`<div class="cmd-block"><div class="step">Příkaz ${i+1} – ${i?'kniha už není k dispozici':'zapiš výpůjčku'}</div>${glossHTML(cmdTokens(c))}</div>`).join('');
+}
+function openLend(r){
+  lendBook=r; $('#lend-sub').textContent=`Kniha: „${r.Nazev}“ (Kniha_ID ${r.Kniha_ID})`;
+  $('#in-jmeno').value=''; $('#lend-err').innerHTML=''; updateLendPreview(); openModal('#lend-modal');
+  setTimeout(()=>$('#in-jmeno').focus(),60);
+}
+$('#in-jmeno').addEventListener('input',updateLendPreview);
+$('#lend-save').addEventListener('click',()=>{
+  const entries=doAction(`Tvoje akce: půjčit knihu „${lendBook.Nazev}“`,lendCmds());
+  const bad=entries.find(e=>!e.res.ok);
+  if(bad) $('#lend-err').innerHTML=stampHTML(bad.res.err); else closeModals();
+});
+
+/* ---------------- Konzole ---------------- */
+function runConsole(){
+  const text=$('#console-input').value.trim(); if(!text) return;
+  const p=parseSQL(text);
+  if(!p.ok){showAction('Tvůj příkaz z konzole',[{cmd:null,raw:text,res:{ok:false,err:p.err},source:'console'}]);return;}
+  state.hl={};
+  const res=runCmd(p.cmd,'console');
+  if(res.ok&&p.cmd.type!=='select'&&p.cmd.type!=='delete'&&res.affected.length){
+    state.hl[p.cmd.table]={ids:res.affected.map(r=>r[SCHEMA[p.cmd.table].pk]),kind:p.cmd.type==='insert'?'new':'upd'};
+  }
+  showAction('Tvůj příkaz z konzole',[{cmd:p.cmd,res,source:'console'}]);
+  if(p.cmd.type!=='select') refreshAll();
+  state.hl={};
+}
+$('#btn-run').addEventListener('click',runConsole);
+$('#console-input').addEventListener('keydown',e=>{if(e.key==='Enter') runConsole();});
+const TEMPLATES=["SELECT * FROM Knihy WHERE Zanr = 'Fantasy'","SELECT Nazev, Autor FROM Knihy ORDER BY Rok DESC","SELECT * FROM Vypujcky WHERE Vraceno = 'Ne'","UPDATE Knihy SET Rok = 2008 WHERE Kniha_ID = 2","DELETE FROM Knihy WHERE Kniha_ID = 12"];
+$('#templates').innerHTML=TEMPLATES.map(t=>`<button data-sql="${esc(t)}">${esc(t)}</button>`).join('');
+$('#templates').addEventListener('click',e=>{const b=e.target.closest('[data-sql]');if(b) toConsole(b.dataset.sql);});
+
+/* ---------------- Modální okna, mise, toast ---------------- */
+function openModal(sel){$(sel).classList.add('open');}
+function closeModals(){$$('.backdrop.open').forEach(b=>b.classList.remove('open'));}
+$$('[data-close]').forEach(b=>b.addEventListener('click',closeModals));
+$$('.backdrop').forEach(b=>b.addEventListener('click',e=>{if(e.target===b) closeModals();}));
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModals();$('#drawer').classList.remove('open');}});
+
+function renderMissions(){
+  const n=state.done.size, all=MISSIONS.length;
+  $('#mission-count').textContent=n+'/'+all;
+  $('#mission-bar').style.width=(n/all*100)+'%';
+  $('#mission-sub').textContent=n===all?'Všechno splněno. Skvělá práce!':`Splněno ${n} z ${all}`;
+  $('#mission-list').innerHTML=MISSIONS.map((m,i)=>{
+    const d=state.done.has(m.id);
+    return `<div class="mission${d?' done':''}"><div class="mcheck">${d?'✓':''}</div><div><div class="mtitle">${i+1}. ${esc(m.title)}</div><div class="mhint">${d?'Hotovo.':'Nápověda: '+esc(m.hint)}</div></div></div>`;
+  }).join('');
+}
+$('#btn-missions').addEventListener('click',()=>$('#drawer').classList.add('open'));
+$('#drawer-close').addEventListener('click',()=>$('#drawer').classList.remove('open'));
+
+let toastT;
+function toast(msg,ms){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),ms||3200);}
+
+/* ---------------- Průvodce ---------------- */
+const exampleCmd={type:'select',table:'Knihy',cols:'*',where:[{col:'Zanr',op:'=',val:S('Fantasy')}],order:null};
+const miniRows=INITIAL.Knihy.slice(0,3);
+const miniTable=`<div class="tbl-wrap">${(()=>{const cols=['Kniha_ID','Nazev','Zanr','Rok'];
+  return `<table class="dt mini"><thead><tr>${cols.map(c=>`<th>${c}<small>${colDef('Knihy',c).g}</small></th>`).join('')}</tr></thead><tbody>${miniRows.map((r,i)=>`<tr>${cols.map(c=>`<td class="${i===1?'hl-row':''} ${c==='Rok'?'hl-col':''}">${esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table>`;})()}</div>`;
+const INTRO=[
+  {h:'Vítej ve školní knihovně',b:`<p>Tahle stránka je <b>databáze</b> školní knihovny. Databáze je vlastně chytrá kartotéka: každá kniha má svou <b>kartu</b> a všechny karty mají stejné kolonky – název, autora, žánr, rok vydání…</p><p>Knihy tu můžeš hledat, přidávat, upravovat, půjčovat i mazat. Nic nerozbiješ – tlačítko <b>Obnovit knihovnu</b> vrátí všechno na začátek.</p>`},
+  {h:'Karta = záznam, kolonka = sloupec',b:`<p>Všechny karty knih dohromady tvoří <b>tabulku</b> Knihy. Databáze si je ve skutečnosti ukládá takhle – jako řádky a sloupce:</p>${miniTable}<div class="tags"><div><span class="tag" style="background:#FFE7AE">žlutý řádek</span> = jeden <b>záznam</b> – jedna karta, jedna kniha</div><div><span class="tag" style="background:rgba(43,90,140,.18)">modrý sloupec</span> = jeden <b>sloupec</b> – stejná kolonka na všech kartách (tady Rok)</div><div><span class="tag" style="background:var(--amber)">Kniha_ID</span> = <b>primární klíč</b> – jedinečné číslo každé karty, nikdy se neopakuje</div></div><p>Malým šedým písmem uvidíš názvy sloupců i na každé kartě.</p>`},
+  {h:'Databáze mluví svým jazykem',b:`<p>Když klikneš na tlačítko nebo vybereš filtr, stránka to databázi „řekne“ v jazyce <b>SQL</b>. Vpravo pak uvidíš celý příkaz – a pod každým slovem český překlad. Třeba výběr žánru Fantasy vypadá takhle:</p>${glossHTML(cmdTokens(exampleCmd))}<p>Barvy pomáhají: <b style="color:var(--k-kw)">zelená</b> = co se má udělat, <b style="color:var(--k-tbl)">hnědá</b> = tabulka, <b style="color:var(--k-col)">modrá</b> = sloupec, <b style="color:var(--k-val)">červená</b> = hodnota.</p><p>Až tomu přijdeš na kloub, zkus příkaz napsat sám/sama do konzole pod ním.</p>`},
+  {h:'Databáze hlídá pravidla',b:`<p>Některé věci ti databáze nedovolí – třeba dvě knihy se stejným číslem nebo smazat knihu, kterou má někdo půjčenou. Když se to stane, uvidíš <b style="color:var(--red)">červené razítko</b>. <b>Přečti si, proč to nešlo</b> – to je to nejdůležitější, co se tu naučíš.</p><p>Vpravo nahoře najdeš <b>Mise</b> – ${MISSIONS.length} úkolů, které tě provedou vším podstatným. Hodně štěstí!</p>`}
+];
+let introStep=0;
+function renderIntro(){
+  const s=INTRO[introStep];
+  $('#intro-body').innerHTML=`<h2 id="intro-h">${s.h}</h2>${s.b}`;
+  $('#intro-dots').innerHTML=INTRO.map((x,i)=>`<i class="${i===introStep?'on':''}"></i>`).join('');
+  $('#intro-back').style.visibility=introStep?'visible':'hidden';
+  $('#intro-next').textContent=introStep===INTRO.length-1?'Začít':'Dál';
+}
+function openIntro(){introStep=0;renderIntro();openModal('#intro-modal');}
+$('#intro-next').addEventListener('click',()=>{if(introStep<INTRO.length-1){introStep++;renderIntro();}else{closeModals();$('#drawer').classList.add('open');}});
+$('#intro-back').addEventListener('click',()=>{if(introStep){introStep--;renderIntro();}});
+$('#intro-skip').addEventListener('click',closeModals);
+$('#btn-intro').addEventListener('click',openIntro);
+
+/* ---------------- Start ---------------- */
+renderMissions();
+refresh('Vypujcky');
+refresh('Knihy','Tvoje akce: otevřít tabulku Knihy');
+openIntro();
+})();
+</script>
+</body>
+</html>
