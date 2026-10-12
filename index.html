@@ -181,6 +181,32 @@ table.dt{border-collapse:collapse;width:100%;font-size:13px}
 .drawer-foot{font-size:13px;color:var(--ink-soft);margin-top:14px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:10px 12px}
 .toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,160%);background:var(--green-dark);color:#F7F2E7;padding:10px 16px;border-radius:6px;font-size:14px;box-shadow:0 6px 18px rgba(0,0,0,.25);transition:transform .25s;z-index:40;max-width:min(560px,92vw);text-align:center}
 .toast.show{transform:translate(-50%,0)}
+.sql-side{display:flex;flex-direction:column}
+.sql-side.task-mode .console{order:-1;margin:0 0 14px;border-top:none;padding-top:0;border-bottom:1px dashed var(--border);padding-bottom:14px}
+.sql-side.task-mode .console .hint,.sql-side.task-mode .templates{display:none}
+.drawer-tabs{display:flex;margin-top:12px;border:1px solid var(--border);border-radius:5px;overflow:hidden}
+.drawer-tabs button{flex:1;border:none;background:var(--card);padding:8px 6px;font-weight:600;font-size:13px;color:var(--ink-soft)}
+.drawer-tabs button.on{background:var(--green);color:var(--paper-light)}
+.level{font-family:var(--serif);font-size:16px;font-weight:600;color:var(--green-dark);margin:18px 0 2px}
+.level-sub{font-size:12.5px;color:var(--ink-soft);margin:0 0 2px}
+.mbody{flex:1}
+.mbtn{flex:none;align-self:center}
+.hcount{color:#8A5A12;font-weight:600}
+.score{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.score div{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center}
+.score b{display:block;font-family:var(--serif);font-size:28px;color:var(--green-dark);line-height:1.1}
+.score span{font-size:12px;color:var(--ink-soft)}
+.task-card{border:2px solid var(--k-col);background:var(--card);border-radius:7px;padding:12px 14px;margin:0 0 12px}
+.task-card[hidden]{display:none}
+.task-meta{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--k-col);font-weight:600}
+.task-text{font-weight:600;font-size:15px;margin:4px 0 8px}
+.task-hints{display:flex;flex-direction:column;gap:6px}
+.task-hint{font-size:13px;background:#FFF6DE;border-left:3px solid var(--amber);padding:6px 9px;border-radius:0 4px 4px 0}
+.task-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.task-fb{margin-top:8px;font-size:13.5px;padding:7px 10px;border-radius:0 4px 4px 0}
+.task-fb.ok{background:rgba(47,74,60,.1);border-left:4px solid var(--green);color:var(--green-dark);font-weight:600}
+.task-fb.bad{background:rgba(166,61,47,.07);border-left:4px solid var(--red);color:var(--ink)}
+.task-fb.info{background:var(--paper-light);border-left:4px solid var(--border);color:var(--ink-soft)}
 </style>
 </head>
 <body>
@@ -191,7 +217,8 @@ table.dt{border-collapse:collapse;width:100%;font-size:13px}
     <p>Databáze zevnitř: klikej na karty a vpravo sleduj, co přesně databáze dostala za příkaz.</p>
   </div>
   <div class="top-actions">
-    <button class="btn primary" id="btn-missions">Mise <span id="mission-count">0/8</span></button>
+    <button class="btn primary" id="btn-missions">Mise I <span id="mission-count">0/8</span></button>
+    <button class="btn primary" id="btn-missions2">Mise II <span id="mission2-count">0/14</span></button>
     <button class="btn ghost" id="btn-intro">Průvodce</button>
     <button class="btn ghost" id="btn-reset">Obnovit knihovnu</button>
   </div>
@@ -263,7 +290,8 @@ table.dt{border-collapse:collapse;width:100%;font-size:13px}
     </div>
     <div id="sql-current"><div class="placeholder">Klikni na cokoli vlevo – filtr, kartu, tlačítko – a tady uvidíš, jak to databáze dostala napsané.</div></div>
 
-    <div class="console">
+    <div class="console" id="console">
+      <div id="task-card" class="task-card" hidden></div>
       <label for="console-input">Zkus to napsat sám/sama</label>
       <div class="console-row">
         <span>&gt;</span>
@@ -347,13 +375,9 @@ table.dt{border-collapse:collapse;width:100%;font-size:13px}
 <aside class="drawer" id="drawer" aria-label="Mise">
   <div class="drawer-head">
     <div class="row"><h2>Mise</h2><button class="btn small ghost" id="drawer-close">Zavřít</button></div>
-    <div class="progress"><i id="mission-bar"></i></div>
-    <div class="sub" id="mission-sub" style="margin:0"></div>
+    <div class="drawer-tabs"><button data-dtab="I" class="on">I. Klikej <span id="dtab1"></span></button><button data-dtab="II">II. Piš sám/sama <span id="dtab2"></span></button></div>
   </div>
-  <div class="drawer-body">
-    <div id="mission-list"></div>
-    <div class="drawer-foot">Hotovo? Udělej snímek obrazovky tohohle seznamu (klávesy <b>Win + Shift + S</b>) a vlož ho do zadání v Teams.</div>
-  </div>
+  <div class="drawer-body" id="drawer-body"></div>
 </aside>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -672,9 +696,129 @@ const MISSIONS=[
    test:e=>e.source==='console'&&isCmd(e,'select','Knihy')&&e.res.ok&&whereHas(e,'Autor',()=>true)}
 ];
 
+/* ---------------- Mise II – piš sám ---------------- */
+const LEVELS={
+  1:{name:'Stupeň 1 – Doplň mezeru',short:'doplň mezeru',sub:'Příkaz je skoro hotový, chybí jen kousek místo ___.'},
+  2:{name:'Stupeň 2 – Oprav chybu',short:'oprav chybu',sub:'Příkaz je rozbitý nebo dělá něco jiného, než má. Najdi chybu a oprav ji.'},
+  3:{name:'Stupeň 3 – Napiš celý příkaz',short:'napiš celý příkaz',sub:'Teď už úplně sám/sama. Inspiraci najdeš v historii příkazů.'}
+};
+const sel=(table,where,order,cols)=>({type:'select',table,cols:cols||'*',where:where||[],order:order||null});
+const W=(col,op,val)=>({col,op,val});
+const baseEq=(a,b)=>String(a).localeCompare(String(b),'cs',{sensitivity:'base'})===0;
+const bad=msg=>({ok:false,msg});
+const MSG_PARSE='Databáze příkazu nerozuměla – v červeném razítku pod konzolí si přečti proč.';
+const MSG_REFUSED='Databáze příkaz odmítla – v červeném razítku pod konzolí si přečti proč.';
+function pre(e,type,why){
+  if(!e.cmd) return bad(MSG_PARSE);
+  if(e.cmd.type!==type) return bad(why);
+  if(!e.res.ok) return bad(MSG_REFUSED);
+  return null;
+}
+function cmpSelect(e,table,ref,opts){
+  opts=opts||{};
+  const p=pre(e,'select','Tady je potřeba příkaz SELECT – ten slouží k vyhledávání.'); if(p) return p;
+  if(e.cmd.table!==table) return bad(`Hledáš v tabulce ${e.cmd.table}, ale tahle úloha je o tabulce ${table}.`);
+  const pk=SCHEMA[table].pk;
+  const got=e.res.rows.map(r=>r[pk]), want=execute(ref).rows.map(r=>r[pk]);
+  const same=got.length===want.length&&want.every(id=>got.includes(id));
+  if(!same){
+    if(got.length===want.length) return bad('Příkaz funguje a našel správný počet záznamů – ale ne ty správné. Zkontroluj podmínku za WHERE.');
+    return bad(`Příkaz funguje, ale našel ${got.length} ${plural(got.length,'záznam','záznamy','záznamů')} – správně jich má být ${want.length}. Zkontroluj podmínku za WHERE.`);
+  }
+  if(opts.ordered&&got.join()!==want.join()) return bad('Záznamy jsou správné, ale ve špatném pořadí. Podívej se na ORDER BY a na ASC/DESC.');
+  if(opts.cols){
+    const gc=e.res.cols;
+    if(gc.length!==opts.cols.length||!opts.cols.every(c=>gc.includes(c))) return bad(`Řádky sedí, ale chceme vidět jen sloupce ${opts.cols.join(' a ')} – ty máš ${e.cmd.cols==='*'?'všechny (*)':gc.join(', ')}.`);
+  }
+  return {ok:true};
+}
+function checkUpdate(e,isTarget,isRight,label){
+  const p=pre(e,'update','Tady je potřeba příkaz UPDATE – ten slouží ke změně záznamu.'); if(p) return p;
+  if(e.cmd.table!=='Knihy') return bad('Měníš jinou tabulku – úloha je o tabulce Knihy.');
+  const a=e.res.affected;
+  if(!a.length) return bad('Příkaz proběhl, ale podmínce WHERE neodpovídal žádný záznam – nic se nezměnilo. Zkontroluj podmínku.');
+  if(a.length>1) return bad(`Změnil(a) jsi ${a.length} ${plural(a.length,'záznam','záznamy','záznamů')}, ale měl(a) jsi změnit jen ${label}. Klikni nahoře na „Obnovit knihovnu“ a zkus podmínku napsat přesněji.`);
+  if(!isTarget(a[0])) return bad(`Změnil(a) jsi jinou knihu („${a[0].Nazev}“), než bylo potřeba. Klikni nahoře na „Obnovit knihovnu“ a zkus to znovu.`);
+  if(!isRight(a[0])) return bad('Změnil(a) jsi správnou knihu, ale nová hodnota nesedí se zadáním.');
+  return {ok:true};
+}
+function checkBobes(e){
+  if(!e.cmd) return bad(MSG_PARSE);
+  if(e.cmd.type!=='insert'&&e.cmd.type!=='update') return bad('Tady je potřeba příkaz INSERT – ten přidává nový záznam.');
+  if(!e.res.ok) return bad(MSG_REFUSED);
+  if(e.cmd.table!=='Knihy') return bad('Knihy se přidávají do tabulky Knihy.');
+  const cand=db.Knihy.filter(r=>baseEq(r.Nazev,'Malý Bobeš'));
+  if(!cand.length) return bad('Kniha s názvem „Malý Bobeš“ v tabulce zatím není. Zkontroluj, jak jsi napsal(a) název.');
+  let wrong=[];
+  for(const r of cand){
+    wrong=[];
+    if(!/plev/i.test(r.Autor)) wrong.push('autor');
+    if(!baseEq(r.Zanr,'Dobrodružný')) wrong.push('žánr');
+    if(r.Rok!==1951) wrong.push('rok vydání');
+    if(r.K_dispozici!=='Ano') wrong.push('dostupnost');
+    if(!wrong.length) return {ok:true};
+  }
+  return bad(`Kniha je v databázi, ale nesedí: ${wrong.join(', ')}. Oprav to příkazem UPDATE – nebo knihu smaž a vlož znovu.`);
+}
+function checkDelete(e){
+  const p=pre(e,'delete','Tady je potřeba příkaz DELETE – ten maže záznamy.'); if(p) return p;
+  if(e.cmd.table!=='Knihy') return bad('Mažeš z jiné tabulky – kniha je v tabulce Knihy.');
+  const a=e.res.affected;
+  if(!a.length) return bad('Nic se nesmazalo. Buď podmínka nesedí, nebo tu kniha už není – pak klikni nahoře na „Obnovit knihovnu“ a zkus to znovu.');
+  if(a.length>1) return bad(`Smazal(a) jsi ${a.length} ${plural(a.length,'záznam','záznamy','záznamů')} – mělo se smazat jen „Záhada hlavolamu“. Klikni na „Obnovit knihovnu“ a zkus podmínku přesněji.`);
+  if(a[0].Nazev!=='Záhada hlavolamu') return bad(`Smazal(a) jsi jinou knihu („${a[0].Nazev}“). Klikni na „Obnovit knihovnu“ a zkus to znovu.`);
+  return {ok:true};
+}
+const TASKS=[
+  {id:'t1',level:1,text:'Najdi všechny knihy žánru Humor.',start:"SELECT * FROM ___ WHERE Zanr = 'Humor'",
+   h:['Na místo ___ patří název tabulky, ve které hledáš.','Knihy jsou v tabulce Knihy.'],
+   check:e=>cmpSelect(e,'Knihy',sel('Knihy',[W('Zanr','=',S('Humor'))]))},
+  {id:'t2',level:1,text:'Najdi knihy, které vyšly po roce 2000.',start:'SELECT * FROM Knihy ___ Rok > 2000',
+   h:['Chybí slovo, které uvádí podmínku („jen tam, kde…“).','To slovo je WHERE.'],
+   check:e=>cmpSelect(e,'Knihy',sel('Knihy',[W('Rok','>',N(2000))]))},
+  {id:'t3',level:1,text:'Seřaď všechny knihy podle roku vydání – od nejstarší po nejnovější.',start:'SELECT * FROM Knihy ORDER BY ___ ASC',
+   h:['Za ORDER BY patří název sloupce, podle kterého se řadí.','Rok vydání je ve sloupci Rok.'],
+   check:e=>cmpSelect(e,'Knihy',sel('Knihy',[],{col:'Rok',dir:'ASC'}),{ordered:true})},
+  {id:'t4',level:1,text:'Vypiš jen názvy a autory všech knih (žádné další sloupce).',start:'SELECT ___, ___ FROM Knihy',
+   h:['Místo hvězdičky (*) se dají vyjmenovat jen konkrétní sloupce, oddělené čárkou.','Sloupce se jmenují Nazev a Autor.'],
+   check:e=>cmpSelect(e,'Knihy',sel('Knihy'),{cols:['Nazev','Autor']})},
+  {id:'t5',level:2,text:'Tenhle příkaz má najít všechny fantasy knihy, ale databáze ho odmítá. Oprav ho.',start:'SELECT * FROM Knihy WHERE Zanr = Fantasy',
+   h:['Podívej se na hodnotu za rovnítkem. Jak se v SQL píše text?',"Text patří do apostrofů: 'Fantasy'"],
+   check:e=>cmpSelect(e,'Knihy',sel('Knihy',[W('Zanr','=',S('Fantasy'))]))},
+  {id:'t6',level:2,text:'Tenhle příkaz má najít knihy vydané před rokem 1950. Oprav ho.',start:"SELECT * FROM Knihy WHERE Rok < '1950'",
+   h:['Rok je číslo. Píšou se čísla do apostrofů?','Čísla se píšou bez apostrofů: Rok < 1950'],
+   check:e=>cmpSelect(e,'Knihy',sel('Knihy',[W('Rok','<',N(1950))]))},
+  {id:'t7',level:2,text:'Tenhle příkaz má najít knihy, které jsou k dispozici. Oprav ho.',start:"SELECT * FROM Knihy WHERE Dostupnost = 'Ano'",
+   h:['Sloupec „Dostupnost“ v tabulce není. Jak se jmenuje doopravdy? Podívej se na kartu – malým šedým písmem.','Sloupec se jmenuje K_dispozici.'],
+   check:e=>cmpSelect(e,'Knihy',sel('Knihy',[W('K_dispozici','=',S('Ano'))]))},
+  {id:'t8',level:2,text:'Knihovnice chce u knihy s ID 10 opravit rok vydání na 2009. Tenhle příkaz by ale změnil úplně všechny knihy. Oprav ho.',start:'UPDATE Knihy SET Rok = 2009',
+   h:['Chybí část, která říká, KTERÝ záznam se má změnit.','Přidej na konec: WHERE Kniha_ID = 10'],
+   check:e=>checkUpdate(e,r=>r.Kniha_ID===10,r=>r.Rok===2009,'knihu s ID 10')},
+  {id:'t9',level:3,text:'Najdi všechny fantasy knihy vydané po roce 1990.',start:'',
+   h:['Potřebuješ dvě podmínky najednou – spojíš je slovem AND.',"Kostra: SELECT * FROM Knihy WHERE Zanr = '…' AND Rok > …"],
+   check:e=>cmpSelect(e,'Knihy',sel('Knihy',[W('Zanr','=',S('Fantasy')),W('Rok','>',N(1990))]))},
+  {id:'t10',level:3,text:'Najdi knihy, které mají v názvu slovo „Deník“.',start:'',
+   h:['Na hledání části textu slouží LIKE. Znak % znamená „cokoli“.',"Kostra: SELECT * FROM Knihy WHERE Nazev LIKE '%…%'"],
+   check:e=>cmpSelect(e,'Knihy',sel('Knihy',[W('Nazev','LIKE',S('%Deník%'))]))},
+  {id:'t11',level:3,text:'Vypiš všechny výpůjčky, které ještě nejsou vrácené.',start:'',
+   h:['Pozor, tohle je jiná tabulka než Knihy. Mrkni na záložku Výpůjčky – jak se jmenuje tabulka a sloupec s vrácením?',"Kostra: SELECT * FROM Vypujcky WHERE Vraceno = '…'"],
+   check:e=>cmpSelect(e,'Vypujcky',sel('Vypujcky',[W('Vraceno','=',S('Ne'))]))},
+  {id:'t12',level:3,text:'Změň rok vydání knihy Marťan (ID 8) na 2014.',start:'',
+   h:['Na změnu slouží UPDATE … SET … WHERE …','Kostra: UPDATE Knihy SET Rok = … WHERE Kniha_ID = …'],
+   check:e=>checkUpdate(e,r=>r.Kniha_ID===8,r=>r.Rok===2014,'knihu Marťan')},
+  {id:'t13',level:3,text:'Přidej knihu „Malý Bobeš“ od autora J. V. Pleva – žánr Dobrodružný, rok vydání 1951, je k dispozici.',start:'',
+   h:['Na přidání slouží INSERT INTO … (sloupce) VALUES (hodnoty). Vyplnit musíš všech 6 sloupců a jako ID použij číslo, které ještě žádná kniha nemá.',"Kostra: INSERT INTO Knihy (Kniha_ID, Nazev, Autor, Zanr, Rok, K_dispozici) VALUES (…, '…', '…', '…', …, '…')"],
+   check:e=>checkBobes(e)},
+  {id:'t14',level:3,text:'Smaž z knihovny knihu Záhada hlavolamu (ID 12).',start:'',
+   h:['Na mazání slouží DELETE FROM … WHERE … – a WHERE nikdy nevynechávej!','Kostra: DELETE FROM Knihy WHERE Kniha_ID = …'],
+   check:e=>checkDelete(e)}
+];
+
 /* ---------------- Stav aplikace ---------------- */
 const blankFilters=()=>({search:'',genre:'',year:'',avail:false,sort:'',id:null});
-const state={tab:'Knihy',view:'cards',f:blankFilters(),onlyOpen:false,ids:{Knihy:[],Vypujcky:[]},hl:{},done:new Set(),history:[]};
+const state={tab:'Knihy',view:'cards',f:blankFilters(),onlyOpen:false,ids:{Knihy:[],Vypujcky:[]},hl:{},done:new Set(),history:[],
+  done2:new Set(),hints2:{},task:null,taskFb:null};
+const totalHints=()=>Object.values(state.hints2).reduce((a,b)=>a+b,0);
 
 function checkMissions(e){
   const fresh=[];
@@ -682,7 +826,7 @@ function checkMissions(e){
   if(fresh.length){
     renderMissions();
     toast('Mise splněna: '+fresh[fresh.length-1].title);
-    if(state.done.size===MISSIONS.length) setTimeout(()=>toast('Všech '+MISSIONS.length+' misí je hotových! Otevři Mise a udělej si snímek obrazovky.',5000),3300);
+    if(state.done.size===MISSIONS.length) setTimeout(()=>toast('Mise I je kompletní! Pokračuj v Mise II – tam už píšeš příkazy sám/sama.',5000),3300);
   }
 }
 function runCmd(cmd,source){const res=execute(cmd);checkMissions({cmd,res,source});return res;}
@@ -947,8 +1091,13 @@ $('#lend-save').addEventListener('click',()=>{
 /* ---------------- Konzole ---------------- */
 function runConsole(){
   const text=$('#console-input').value.trim(); if(!text) return;
+  if(state.task&&text.includes('___')){state.taskFb={cls:'bad',html:'Nejdřív doplň místo <b>___</b> správným slovem.'};renderTaskCard();return;}
   const p=parseSQL(text);
-  if(!p.ok){showAction('Tvůj příkaz z konzole',[{cmd:null,raw:text,res:{ok:false,err:p.err},source:'console'}]);return;}
+  if(!p.ok){
+    showAction('Tvůj příkaz z konzole',[{cmd:null,raw:text,res:{ok:false,err:p.err},source:'console'}]);
+    evalTask({cmd:null,res:{ok:false,err:p.err},source:'console'});
+    return;
+  }
   state.hl={};
   const res=runCmd(p.cmd,'console');
   if(res.ok&&p.cmd.type!=='select'&&p.cmd.type!=='delete'&&res.affected.length){
@@ -957,7 +1106,61 @@ function runConsole(){
   showAction('Tvůj příkaz z konzole',[{cmd:p.cmd,res,source:'console'}]);
   if(p.cmd.type!=='select') refreshAll();
   state.hl={};
+  evalTask({cmd:p.cmd,res,source:'console'});
 }
+
+/* ---------------- Mise II – karta úkolu ---------------- */
+function evalTask(e){
+  const t=TASKS.find(x=>x.id===state.task); if(!t) return;
+  let r; try{r=t.check(e);}catch(_){r=bad('Tohle se nepodařilo vyhodnotit – zkus příkaz napsat jinak.');}
+  if(r.ok){
+    const first=!state.done2.has(t.id);
+    state.done2.add(t.id);
+    state.taskFb={cls:'ok',html:'✓ Správně! '+(first?'Úkol je splněný.':'Pořád to platí.')};
+    if(first){
+      toast('Mise II: úkol '+(TASKS.indexOf(t)+1)+' splněn!');
+      if(state.done2.size===TASKS.length) setTimeout(()=>toast('Celá Mise II je hotová! Otevři přehled (tlačítko Mise II) a udělej snímek obrazovky.',5500),3300);
+    }
+  }else state.taskFb={cls:'bad',html:esc(r.msg)};
+  renderTaskCard(); renderMissions();
+}
+function renderTaskCard(){
+  const card=$('#task-card'), t=TASKS.find(x=>x.id===state.task);
+  $('#sql-side').classList.toggle('task-mode',!!t);
+  if(!t){card.hidden=true;card.innerHTML='';return;}
+  const i=TASKS.indexOf(t), h=state.hints2[t.id]||0, done=state.done2.has(t.id), fb=state.taskFb;
+  card.hidden=false;
+  card.innerHTML=`<div class="task-meta">Mise II · úkol ${i+1} z ${TASKS.length} · ${LEVELS[t.level].short}</div>
+    <div class="task-text">${esc(t.text)}</div>
+    ${h?`<div class="task-hints">${t.h.slice(0,h).map((x,j)=>`<div class="task-hint"><b>Nápověda ${j+1}:</b> ${esc(x)}</div>`).join('')}</div>`:''}
+    <div class="task-actions">
+      ${h<t.h.length?`<button class="btn small ghost" data-tact="hint">Ukaž nápovědu ${h+1}</button>`:''}
+      ${t.start?'<button class="btn small ghost" data-tact="restart">Vrátit původní příkaz</button>':''}
+      ${done&&i<TASKS.length-1?'<button class="btn small primary" data-tact="next">Další úkol →</button>':''}
+      <button class="btn small ghost" data-tact="list">Seznam úkolů</button>
+      <button class="btn small ghost" data-tact="close">Ukončit úkol</button>
+    </div>
+    ${fb?`<div class="task-fb ${fb.cls}">${fb.html}</div>`:(done?'<div class="task-fb ok">✓ Tenhle úkol už máš splněný.</div>':`<div class="task-fb info">${t.start?'Uprav příkaz v konzoli níže':'Napiš příkaz do konzole níže'} a stiskni Enter nebo Spustit.</div>`)}`;
+}
+function startTask(id){
+  const t=TASKS.find(x=>x.id===id); if(!t) return;
+  state.task=id; state.taskFb=null;
+  $('#drawer').classList.remove('open');
+  renderTaskCard(); renderMissions();
+  $('#sql-side').scrollTop=0;
+  const card=$('#task-card'); if(card.scrollIntoView) card.scrollIntoView({block:'nearest'});
+  const inp=$('#console-input'); inp.value=t.start||''; inp.focus();
+}
+$('#task-card').addEventListener('click',e=>{
+  const b=e.target.closest('[data-tact]'); if(!b) return;
+  const t=TASKS.find(x=>x.id===state.task); if(!t) return;
+  const a=b.dataset.tact;
+  if(a==='hint'){state.hints2[t.id]=(state.hints2[t.id]||0)+1;renderTaskCard();renderMissions();}
+  if(a==='restart') toConsole(t.start);
+  if(a==='next') startTask(TASKS[TASKS.indexOf(t)+1].id);
+  if(a==='list') openDrawer('II');
+  if(a==='close'){state.task=null;state.taskFb=null;renderTaskCard();renderMissions();}
+});
 $('#btn-run').addEventListener('click',runConsole);
 $('#console-input').addEventListener('keydown',e=>{if(e.key==='Enter') runConsole();});
 const TEMPLATES=["SELECT * FROM Knihy WHERE Zanr = 'Fantasy'","SELECT Nazev, Autor FROM Knihy ORDER BY Rok DESC","SELECT * FROM Vypujcky WHERE Vraceno = 'Ne'","UPDATE Knihy SET Rok = 2008 WHERE Kniha_ID = 2","DELETE FROM Knihy WHERE Kniha_ID = 12"];
@@ -971,17 +1174,37 @@ $$('[data-close]').forEach(b=>b.addEventListener('click',closeModals));
 $$('.backdrop').forEach(b=>b.addEventListener('click',e=>{if(e.target===b) closeModals();}));
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModals();$('#drawer').classList.remove('open');}});
 
+let drawerTab='I';
 function renderMissions(){
-  const n=state.done.size, all=MISSIONS.length;
+  const n=state.done.size, all=MISSIONS.length, n2=state.done2.size, all2=TASKS.length, h2=totalHints();
   $('#mission-count').textContent=n+'/'+all;
-  $('#mission-bar').style.width=(n/all*100)+'%';
-  $('#mission-sub').textContent=n===all?'Všechno splněno. Skvělá práce!':`Splněno ${n} z ${all}`;
-  $('#mission-list').innerHTML=MISSIONS.map((m,i)=>{
-    const d=state.done.has(m.id);
-    return `<div class="mission${d?' done':''}"><div class="mcheck">${d?'✓':''}</div><div><div class="mtitle">${i+1}. ${esc(m.title)}</div><div class="mhint">${d?'Hotovo.':'Nápověda: '+esc(m.hint)}</div></div></div>`;
-  }).join('');
+  $('#mission2-count').textContent=n2+'/'+all2;
+  $('#dtab1').textContent='('+n+'/'+all+')';
+  $('#dtab2').textContent='('+n2+'/'+all2+')';
+  $$('[data-dtab]').forEach(b=>b.classList.toggle('on',b.dataset.dtab===drawerTab));
+  const body=$('#drawer-body');
+  if(drawerTab==='I'){
+    body.innerHTML=`<div class="progress"><i style="width:${n/all*100}%"></i></div><div class="sub">${n===all?'Všechno splněno! Pokračuj v Mise II – tam už píšeš příkazy sám/sama.':`Splněno ${n} z ${all}. Tady se učíš klikáním na karty a tlačítka.`}</div>`+
+      MISSIONS.map((m,i)=>{const d=state.done.has(m.id);return `<div class="mission${d?' done':''}"><div class="mcheck">${d?'✓':''}</div><div class="mbody"><div class="mtitle">${i+1}. ${esc(m.title)}</div><div class="mhint">${d?'Hotovo.':'Nápověda: '+esc(m.hint)}</div></div></div>`;}).join('')+
+      '<div class="drawer-foot">Hotovo? Udělej snímek obrazovky tohohle seznamu (klávesy <b>Win + Shift + S</b>) a vlož ho do zadání v Teams.</div>';
+  }else{
+    let html=`<p class="sub" style="margin-top:12px">Tady už neklikáš – každý úkol vyřešíš příkazem v konzoli. Simulátor kontroluje výsledek, ne přesné znění, takže správných řešení může být víc.</p>
+      <div class="score"><div><b>${n2}/${all2}</b><span>splněných úkolů</span></div><div><b>${h2}</b><span>${plural(h2,'použitá nápověda','použité nápovědy','použitých nápověd')}</span></div></div>`;
+    let lvl=0;
+    TASKS.forEach((t,i)=>{
+      if(t.level!==lvl){lvl=t.level;html+=`<div class="level">${LEVELS[lvl].name}</div><p class="level-sub">${LEVELS[lvl].sub}</p>`;}
+      const d=state.done2.has(t.id), h=state.hints2[t.id]||0, act=state.task===t.id;
+      html+=`<div class="mission${d?' done':''}"><div class="mcheck">${d?'✓':''}</div><div class="mbody"><div class="mtitle">${i+1}. ${esc(t.text)}</div><div class="mhint">${d?'Hotovo':'Zatím nesplněno'}${h?` · <span class="hcount">${h} ${plural(h,'nápověda','nápovědy','nápověd')}</span>`:''}${act?' · právě řešíš':''}</div></div><button class="btn small${d?' ghost':''} mbtn" data-task="${t.id}">${act?'Pokračovat':(d?'Znovu':'Začít')}</button></div>`;
+    });
+    html+='<div class="drawer-foot">Na konci udělej snímek obrazovky tohohle přehledu (klávesy <b>Win + Shift + S</b>) a vlož ho do zadání v Teams. Nápovědy klidně používej – jen se tady počítají.</div>';
+    body.innerHTML=html;
+  }
 }
-$('#btn-missions').addEventListener('click',()=>$('#drawer').classList.add('open'));
+function openDrawer(tab){drawerTab=tab;renderMissions();$('#drawer').classList.add('open');}
+$('#drawer-body').addEventListener('click',e=>{const b=e.target.closest('[data-task]');if(b) startTask(b.dataset.task);});
+$$('[data-dtab]').forEach(b=>b.addEventListener('click',()=>{drawerTab=b.dataset.dtab;renderMissions();}));
+$('#btn-missions').addEventListener('click',()=>openDrawer('I'));
+$('#btn-missions2').addEventListener('click',()=>openDrawer('II'));
 $('#drawer-close').addEventListener('click',()=>$('#drawer').classList.remove('open'));
 
 let toastT;
@@ -996,7 +1219,7 @@ const INTRO=[
   {h:'Vítej ve školní knihovně',b:`<p>Tahle stránka je <b>databáze</b> školní knihovny. Databáze je vlastně chytrá kartotéka: každá kniha má svou <b>kartu</b> a všechny karty mají stejné kolonky – název, autora, žánr, rok vydání…</p><p>Knihy tu můžeš hledat, přidávat, upravovat, půjčovat i mazat. Nic nerozbiješ – tlačítko <b>Obnovit knihovnu</b> vrátí všechno na začátek.</p>`},
   {h:'Karta = záznam, kolonka = sloupec',b:`<p>Všechny karty knih dohromady tvoří <b>tabulku</b> Knihy. Databáze si je ve skutečnosti ukládá takhle – jako řádky a sloupce:</p>${miniTable}<div class="tags"><div><span class="tag" style="background:#FFE7AE">žlutý řádek</span> = jeden <b>záznam</b> – jedna karta, jedna kniha</div><div><span class="tag" style="background:rgba(43,90,140,.18)">modrý sloupec</span> = jeden <b>sloupec</b> – stejná kolonka na všech kartách (tady Rok)</div><div><span class="tag" style="background:var(--amber)">Kniha_ID</span> = <b>primární klíč</b> – jedinečné číslo každé karty, nikdy se neopakuje</div></div><p>Malým šedým písmem uvidíš názvy sloupců i na každé kartě.</p>`},
   {h:'Databáze mluví svým jazykem',b:`<p>Když klikneš na tlačítko nebo vybereš filtr, stránka to databázi „řekne“ v jazyce <b>SQL</b>. Vpravo pak uvidíš celý příkaz – a pod každým slovem český překlad. Třeba výběr žánru Fantasy vypadá takhle:</p>${glossHTML(cmdTokens(exampleCmd))}<p>Barvy pomáhají: <b style="color:var(--k-kw)">zelená</b> = co se má udělat, <b style="color:var(--k-tbl)">hnědá</b> = tabulka, <b style="color:var(--k-col)">modrá</b> = sloupec, <b style="color:var(--k-val)">červená</b> = hodnota.</p><p>Až tomu přijdeš na kloub, zkus příkaz napsat sám/sama do konzole pod ním.</p>`},
-  {h:'Databáze hlídá pravidla',b:`<p>Některé věci ti databáze nedovolí – třeba dvě knihy se stejným číslem nebo smazat knihu, kterou má někdo půjčenou. Když se to stane, uvidíš <b style="color:var(--red)">červené razítko</b>. <b>Přečti si, proč to nešlo</b> – to je to nejdůležitější, co se tu naučíš.</p><p>Vpravo nahoře najdeš <b>Mise</b> – ${MISSIONS.length} úkolů, které tě provedou vším podstatným. Hodně štěstí!</p>`}
+  {h:'Databáze hlídá pravidla',b:`<p>Některé věci ti databáze nedovolí – třeba dvě knihy se stejným číslem nebo smazat knihu, kterou má někdo půjčenou. Když se to stane, uvidíš <b style="color:var(--red)">červené razítko</b>. <b>Přečti si, proč to nešlo</b> – to je to nejdůležitější, co se tu naučíš.</p><p>Vpravo nahoře najdeš <b>Mise I</b> – ${MISSIONS.length} úkolů, kde se klikáním naučíš to podstatné. Pak přijde <b>Mise II</b>, kde už příkazy píšeš sám/sama. Hodně štěstí!</p>`}
 ];
 let introStep=0;
 function renderIntro(){
@@ -1007,7 +1230,7 @@ function renderIntro(){
   $('#intro-next').textContent=introStep===INTRO.length-1?'Začít':'Dál';
 }
 function openIntro(){introStep=0;renderIntro();openModal('#intro-modal');}
-$('#intro-next').addEventListener('click',()=>{if(introStep<INTRO.length-1){introStep++;renderIntro();}else{closeModals();$('#drawer').classList.add('open');}});
+$('#intro-next').addEventListener('click',()=>{if(introStep<INTRO.length-1){introStep++;renderIntro();}else{closeModals();openDrawer('I');}});
 $('#intro-back').addEventListener('click',()=>{if(introStep){introStep--;renderIntro();}});
 $('#intro-skip').addEventListener('click',closeModals);
 $('#btn-intro').addEventListener('click',openIntro);
