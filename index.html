@@ -207,6 +207,27 @@ table.dt{border-collapse:collapse;width:100%;font-size:13px}
 .task-fb.ok{background:rgba(47,74,60,.1);border-left:4px solid var(--green);color:var(--green-dark);font-weight:600}
 .task-fb.bad{background:rgba(166,61,47,.07);border-left:4px solid var(--red);color:var(--ink)}
 .task-fb.info{background:var(--paper-light);border-left:4px solid var(--border);color:var(--ink-soft)}
+.btn.test-btn{border-color:var(--amber);background:var(--amber);color:#2B2420}
+.btn.test-btn:hover{background:#B5852C;border-color:#B5852C;color:#2B2420}
+.test-lock{margin-top:14px}
+.test-lock .lock-icon{font-family:var(--serif);font-size:20px;font-weight:700;color:var(--green-dark);margin:0 0 4px}
+.tfield{display:flex;flex-direction:column;gap:3px;font-size:13px;font-weight:600;margin-top:10px}
+.tfield input,.tfield select{font:inherit;font-weight:400;padding:8px 9px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--ink)}
+.terr{color:var(--red);font-size:13px;margin-top:8px;min-height:1em}
+.tinfo{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:13px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin:12px 0 4px}
+.tinfo b{color:var(--ink-soft);font-weight:500}
+.ttag{display:inline-block;font-size:11px;font-weight:600;border-radius:3px;padding:0 6px;margin-left:4px;vertical-align:1px}
+.ttag.any{background:rgba(47,74,60,.12);color:var(--green-dark)}
+.ttag.con{background:rgba(43,90,140,.14);color:var(--k-col)}
+.tcode{font-family:var(--mono);font-size:12.5px;background:var(--green-dark);color:#DCE7DD;border-radius:4px;padding:4px 7px;margin-top:5px;display:inline-block;word-break:break-all}
+.tfinish{margin-top:16px;padding-top:12px;border-top:1px dashed var(--border)}
+.tconfirm{background:#FFF6DE;border:1px solid var(--amber);border-radius:6px;padding:10px 12px;font-size:13.5px}
+.tconfirm .row{display:flex;gap:8px;margin-top:8px}
+.result-img{width:100%;border:1px solid var(--border);border-radius:6px;margin-top:10px;background:#fff}
+.small-link{margin-top:18px;font-size:12.5px;color:var(--ink-soft)}
+.verify-res{margin-top:12px;font-size:14px;padding:10px 12px;border-radius:0 5px 5px 0}
+.verify-res.ok{background:rgba(47,74,60,.1);border-left:4px solid var(--green)}
+.verify-res.bad{background:rgba(166,61,47,.08);border-left:4px solid var(--red)}
 </style>
 </head>
 <body>
@@ -219,6 +240,7 @@ table.dt{border-collapse:collapse;width:100%;font-size:13px}
   <div class="top-actions">
     <button class="btn primary" id="btn-missions">Mise I <span id="mission-count">0/8</span></button>
     <button class="btn primary" id="btn-missions2">Mise II <span id="mission2-count">0/14</span></button>
+    <button class="btn test-btn" id="btn-test">Test <span id="test-count">(zamčený)</span></button>
     <button class="btn ghost" id="btn-intro">Průvodce</button>
     <button class="btn ghost" id="btn-reset">Obnovit knihovnu</button>
   </div>
@@ -375,10 +397,25 @@ table.dt{border-collapse:collapse;width:100%;font-size:13px}
 <aside class="drawer" id="drawer" aria-label="Mise">
   <div class="drawer-head">
     <div class="row"><h2>Mise</h2><button class="btn small ghost" id="drawer-close">Zavřít</button></div>
-    <div class="drawer-tabs"><button data-dtab="I" class="on">I. Klikej <span id="dtab1"></span></button><button data-dtab="II">II. Piš sám/sama <span id="dtab2"></span></button></div>
+    <div class="drawer-tabs"><button data-dtab="I" class="on">Mise I <span id="dtab1"></span></button><button data-dtab="II">Mise II <span id="dtab2"></span></button><button data-dtab="T">Test <span id="dtab3"></span></button></div>
   </div>
   <div class="drawer-body" id="drawer-body"></div>
 </aside>
+
+<!-- Ověření kódu (učitel) -->
+<div class="backdrop" id="verify-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="verify-title" style="max-width:520px">
+    <h2 id="verify-title">Ověřit kontrolní kód</h2>
+    <p class="sub">Pro učitele. Opiš z obrázku jméno a kontrolní kód. Když někdo obrázek upravil, kód nebude sedět.</p>
+    <label class="tfield">Jméno a příjmení (jak je na obrázku)<input id="v-name" type="text" autocomplete="off"></label>
+    <label class="tfield">Kontrolní kód<input id="v-code" type="text" autocomplete="off" placeholder="např. 0AB-K9X2LM-3F7Q"></label>
+    <div id="verify-res"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" data-close>Zavřít</button>
+      <button class="btn primary" id="v-check">Ověřit</button>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -829,7 +866,7 @@ function checkMissions(e){
     if(state.done.size===MISSIONS.length) setTimeout(()=>toast('Mise I je kompletní! Pokračuj v Mise II – tam už píšeš příkazy sám/sama.',5000),3300);
   }
 }
-function runCmd(cmd,source){const res=execute(cmd);checkMissions({cmd,res,source});return res;}
+function runCmd(cmd,source){const res=execute(cmd);const e={cmd,res,source};checkMissions(e);checkTest(e);return res;}
 
 /* ---------------- Vykreslování panelu s příkazy ---------------- */
 function dataTable(t,cols,rows,clsFn,extra){
@@ -1174,6 +1211,231 @@ $$('[data-close]').forEach(b=>b.addEventListener('click',closeModals));
 $$('.backdrop').forEach(b=>b.addEventListener('click',e=>{if(e.target===b) closeModals();}));
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModals();$('#drawer').classList.remove('open');}});
 
+/* ---------------- Test ---------------- */
+const norm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+const okr=r=>!!(r&&r.ok);
+function sameName(s){
+  const want=norm(test.name).split(' ').filter(Boolean), have=norm(s).split(' ');
+  return want.length>0&&want.every(x=>have.includes(x));
+}
+function targets(e,id){
+  const r=execute({type:'select',table:'Knihy',cols:'*',where:e.cmd.where||[],order:null});
+  return r.ok&&r.rows.some(x=>x.Kniha_ID===id);
+}
+const TEST_ITEMS=[
+  {id:'q1',mode:'any',text:'Přidej do knihovny knihu s libovolným názvem. Jako autora uveď své jméno a příjmení – stejně, jak jsi ho napsal(a) na začátku testu.',short:'Přidat knihu se svým jménem jako autorem',
+   check:e=>e.cmd&&e.cmd.type==='insert'&&e.cmd.table==='Knihy'&&e.res.ok&&e.res.affected.some(r=>sameName(r.Autor))},
+  {id:'q2',mode:'any',text:'Najdi všechny knihy žánru Detektivka.',short:'Najít všechny detektivky',
+   check:e=>okr(cmpSelect(e,'Knihy',sel('Knihy',[W('Zanr','=',S('Detektivka'))])))},
+  {id:'q3',mode:'con',text:'Napiš příkaz, který najde knihy vydané před rokem 1945 a seřadí je od nejstarší.',short:'Knihy vydané před rokem 1945, od nejstarší',
+   check:e=>e.source==='console'&&okr(cmpSelect(e,'Knihy',sel('Knihy',[W('Rok','<',N(1945))],{col:'Rok',dir:'ASC'}),{ordered:true}))},
+  {id:'q4',mode:'any',text:'Půjč knihu Hobit spolužákovi nebo spolužačce (jméno je na tobě).',short:'Půjčit knihu Hobit',
+   check:e=>e.cmd&&e.cmd.type==='insert'&&e.cmd.table==='Vypujcky'&&e.res.ok&&e.res.affected.some(r=>r.Kniha_ID===3)},
+  {id:'q5',mode:'any',text:'Zkus smazat knihu, kterou má půjčenou Klára Dvořáková. Kterou knihu má, zjistíš v tabulce Výpůjčky.',short:'Pokus smazat knihu půjčenou Kláře (cizí klíč)',
+   check:e=>e.cmd&&e.cmd.type==='delete'&&e.cmd.table==='Knihy'&&!e.res.ok&&e.res.err.code==='fk_used'&&targets(e,5)},
+  {id:'q6',mode:'con',text:'Napiš příkaz, který vypíše jen názvy a roky vydání všech sci-fi knih.',short:'Jen názvy a roky vydání sci-fi knih',
+   check:e=>e.source==='console'&&okr(cmpSelect(e,'Knihy',sel('Knihy',[W('Zanr','=',S('Sci-fi'))]),{cols:['Nazev','Rok']}))},
+  {id:'q7',mode:'con',text:'Tenhle příkaz má najít knihy od Tolkiena, ale nenajde nic. Oprav ho:',start:"SELECT * FROM Knihy WHERE Autor = 'Tolkien'",short:'Opravit hledání knih od Tolkiena',
+   check:e=>e.source==='console'&&okr(cmpSelect(e,'Knihy',sel('Knihy',[W('Autor','LIKE',S('%Tolkien%'))])))},
+  {id:'q8',mode:'con',text:'Tenhle příkaz má změnit žánr jen u knihy Hunger Games (ID 10), ale změnil by úplně všechny knihy. Oprav ho:',start:"UPDATE Knihy SET Zanr = 'Sci-fi'",short:'Opravit UPDATE bez WHERE (Hunger Games)',
+   check:e=>e.source==='console'&&okr(checkUpdate(e,r=>r.Kniha_ID===10,r=>baseEq(r.Zanr,'Sci-fi'),'knihu Hunger Games'))},
+  {id:'q9',mode:'any',text:'Najdi knihy, které jsou k dispozici a zároveň vyšly po roce 1990.',short:'Dostupné knihy vydané po roce 1990',
+   check:e=>okr(cmpSelect(e,'Knihy',sel('Knihy',[W('K_dispozici','=',S('Ano')),W('Rok','>',N(1990))])))},
+  {id:'q10',mode:'con',text:'Napiš příkaz, který vypíše všechny výpůjčky Tomáše Nováka.',short:'Všechny výpůjčky Tomáše Nováka',
+   check:e=>e.source==='console'&&okr(cmpSelect(e,'Vypujcky',sel('Vypujcky',[W('Jmeno_zaka','=',S('Tomáš Novák'))])))},
+  {id:'q11',mode:'any',text:'Změň rok vydání knihy Malý princ (ID 11) na 1946.',short:'Změnit rok vydání Malého prince na 1946',
+   check:e=>okr(checkUpdate(e,r=>r.Kniha_ID===11,r=>r.Rok===1946,'knihu Malý princ'))},
+  {id:'q12',mode:'any',text:'Smaž z knihovny knihu, kterou jsi přidal(a) v úloze 1.',short:'Smazat vlastní knihu z úlohy 1',
+   check:e=>e.cmd&&e.cmd.type==='delete'&&e.cmd.table==='Knihy'&&e.res.ok&&e.res.affected.length>0&&e.res.affected.every(r=>sameName(r.Autor))},
+  {id:'q13',mode:'any',text:'Tomáš Novák vrací Harryho Pottera (výpůjčka č. 1). Zapiš to do databáze.',short:'Vrátit výpůjčku č. 1 (Harry Potter)',
+   check:e=>e.cmd&&e.cmd.type==='update'&&e.cmd.table==='Vypujcky'&&e.res.ok&&e.res.affected.some(r=>r.Vypujcka_ID===1&&r.Vraceno==='Ano')},
+  {id:'q14',mode:'any',text:'Zkus přidat knihu s ID, které už v knihovně má jiná kniha. Co databáze udělá?',short:'Pokus o duplicitní ID (primární klíč)',
+   check:e=>e.cmd&&e.cmd.type==='insert'&&e.cmd.table==='Knihy'&&!e.res.ok&&e.res.err.code==='pk_dup'},
+  {id:'q15',mode:'con',text:'Napiš příkaz, který seřadí všechny knihy podle názvu od Z do A.',short:'Všechny knihy podle názvu od Z do A',
+   check:e=>e.source==='console'&&okr(cmpSelect(e,'Knihy',sel('Knihy',[],{col:'Nazev',dir:'DESC'}),{ordered:true}))}
+];
+const TEST_KEY='skolni-knihovna-test-v1';
+let test={status:'locked'}, testConfirm=false, testRestart=false;
+function saveTest(){try{localStorage.setItem(TEST_KEY,JSON.stringify(test));}catch(_){}}
+function loadTest(){try{const t=JSON.parse(localStorage.getItem(TEST_KEY)||'null');if(t&&t.status&&t.done!==undefined) test=t;}catch(_){}}
+const testDone=()=>test.done?TEST_ITEMS.filter(it=>test.done[it.id]).length:0;
+const pad2=n=>String(n).padStart(2,'0');
+const fmtTime=ts=>{const d=new Date(ts);return d.getHours()+':'+pad2(d.getMinutes());};
+const fmtDate=ts=>{const d=new Date(ts);return d.getDate()+'. '+(d.getMonth()+1)+'. '+d.getFullYear();};
+
+function checkTest(e){
+  if(test.status!=='running') return;
+  const fresh=[];
+  TEST_ITEMS.forEach((it,i)=>{
+    if(test.done[it.id]) return;
+    let r=false; try{r=!!it.check(e);}catch(_){}
+    if(!r) return;
+    test.done[it.id]=Date.now(); fresh.push(i+1);
+    if(it.id==='q1'){const b=e.res.affected.find(x=>sameName(x.Autor)); if(b) test.book=b.Nazev;}
+  });
+  if(fresh.length){
+    saveTest(); renderMissions();
+    toast('Test: '+(fresh.length>1?'úlohy '+fresh.join(', ')+' splněny':'úloha '+fresh[0]+' splněna')+` (${testDone()}/${TEST_ITEMS.length})`);
+  }
+}
+
+/* kontrolní kód */
+function fnv(str){let h=0x811c9dc5;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,0x01000193)>>>0;}return h>>>0;}
+const CODE_MOD=36*36*36*36;
+const codeChk=(name,bits,ts)=>fnv('skolni-knihovna|'+norm(name)+'|'+bits+'|'+ts)%CODE_MOD;
+const testBits=t=>TEST_ITEMS.reduce((b,it,i)=>t.done&&t.done[it.id]?(b|(1<<i)):b,0);
+function makeCode(t){
+  const bits=testBits(t), ts=Math.floor(t.end/60000), chk=codeChk(t.name,bits,ts);
+  return ((bits^(chk&0x7FFF)).toString(36).padStart(3,'0')+'-'+ts.toString(36)+'-'+chk.toString(36).padStart(4,'0')).toUpperCase();
+}
+function verifyCode(name,code){
+  const p=String(code).toLowerCase().replace(/[^0-9a-z-]/g,'').split('-');
+  if(p.length!==3||!p.every(Boolean)) return null;
+  const enc=parseInt(p[0],36), ts=parseInt(p[1],36), chk=parseInt(p[2],36);
+  if([enc,ts,chk].some(isNaN)) return null;
+  const bits=enc^(chk&0x7FFF);
+  if(bits<0||bits>=(1<<TEST_ITEMS.length)) return null;
+  if(codeChk(name,bits,ts)!==chk) return null;
+  return {bits,ts:ts*60000};
+}
+
+function startTest(name,cls){
+  test={status:'running',name,cls,start:Date.now(),end:null,done:{},book:null,code:null};
+  testConfirm=false; testRestart=false; saveTest();
+  db=JSON.parse(JSON.stringify(INITIAL)); state.f=blankFilters(); state.onlyOpen=false; syncInputs(); refreshAll();
+  showInfo('Test běží. Knihovna je zase jako na začátku. Úlohy najdeš pod tlačítkem Test nahoře. Postup se průběžně ukládá.');
+  renderMissions(); toast('Test začal – hodně štěstí!');
+}
+function finishTest(){
+  test.end=Date.now(); test.status='done'; test.code=makeCode(test); testConfirm=false; saveTest(); renderMissions();
+}
+
+function updateTestBadge(){
+  const n=testDone(), all=TEST_ITEMS.length;
+  const txt=test.status==='locked'?'(zamčený)':(test.status==='running'?n+'/'+all:n+'/'+all+' · hotovo');
+  $('#test-count').textContent=txt;
+  $('#dtab3').textContent=test.status==='locked'?'':'('+n+'/'+all+')';
+}
+
+function renderTestPane(body){
+  const all=TEST_ITEMS.length, n=testDone();
+  if(test.status==='locked'){
+    body.innerHTML=`<div class="test-lock">
+      <p class="lock-icon">Test je zamčený</p>
+      <p class="sub">Spusť ho, až ti to řekne učitel. Po spuštění se knihovna vrátí do původního stavu a v testu už nejsou nápovědy.</p>
+      <label class="tfield">Jméno a příjmení<input id="t-name" type="text" autocomplete="off" placeholder="např. Jana Nováková"></label>
+      <label class="tfield">Třída<input id="t-cls" type="text" autocomplete="off" placeholder="např. 9. A"></label>
+      <label class="tfield">Heslo od učitele<input id="t-pass" type="password" autocomplete="off"></label>
+      <div class="terr" id="t-err"></div>
+      <button class="btn primary" data-test-act="start" style="margin-top:6px">Odemknout a začít test</button>
+      <p class="small-link"><button class="linkbtn" data-test-act="verify">Pro učitele: ověřit kontrolní kód z obrázku</button></p>
+    </div>`;
+    return;
+  }
+  const info=`<div class="tinfo"><b>Jméno</b><span>${esc(test.name)}</span><b>Třída</b><span>${esc(test.cls)}</span><b>Začátek</b><span>${fmtDate(test.start)}, ${fmtTime(test.start)}</span>${test.end?`<b>Konec</b><span>${fmtTime(test.end)} (${Math.max(1,Math.round((test.end-test.start)/60000))} min)</span>`:''}<b>Splněno</b><span>${n} z ${all}</span></div>`;
+  if(test.status==='running'){
+    let html=info+`<div class="progress"><i style="width:${n/all*100}%"></i></div>
+      <p class="sub">Každou úlohu vyřeš v knihovně – úlohy označené <span class="ttag any">klikáním i příkazem</span> můžeš udělat tlačítky na kartách nebo příkazem, úlohy <span class="ttag con">jen příkazem</span> musíš napsat do konzole. Splněná úloha se sama odškrtne. Postup se průběžně ukládá.</p>`;
+    html+=TEST_ITEMS.map((it,i)=>{
+      const d=test.done[it.id];
+      return `<div class="mission${d?' done':''}"><div class="mcheck">${d?'✓':''}</div><div class="mbody"><div class="mtitle">${i+1}. ${esc(it.text)}<span class="ttag ${it.mode==='con'?'con':'any'}">${it.mode==='con'?'jen příkazem':'klikáním i příkazem'}</span></div>${it.start?`<div><span class="tcode">${esc(it.start)}</span></div>`:''}<div class="mhint">${d?'Splněno v '+fmtTime(d):'Zatím nesplněno'}</div></div>${it.start&&!d?`<button class="btn small ghost mbtn" data-test-act="insert" data-id="${it.id}">Do konzole</button>`:''}</div>`;
+    }).join('');
+    html+=`<div class="tfinish">${testConfirm?
+      `<div class="tconfirm"><b>Opravdu chceš test ukončit?</b> Pak už nepůjde nic doplnit. Máš splněno ${n} z ${all} úloh.<div class="row"><button class="btn primary small" data-test-act="finish-yes">Ano, ukončit</button><button class="btn ghost small" data-test-act="finish-no">Ještě ne</button></div></div>`:
+      `<button class="btn primary" data-test-act="finish">Ukončit test a vytvořit výsledek</button>`}</div>`;
+    body.innerHTML=html;
+    return;
+  }
+  body.innerHTML=info+`
+    <div class="score"><div><b>${n}/${all}</b><span>splněných úloh</span></div><div><b>${Math.round(n/all*100)} %</b><span>úspěšnost</span></div></div>
+    <p class="sub" style="margin-top:12px"><b>Co teď:</b> stáhni si obrázek s výsledkem a v zadání v Teams ho nahraj přes <b>Přidat práci</b>. Pak dej <b>Odevzdat</b>.</p>
+    <button class="btn primary" data-test-act="download">Stáhnout obrázek s výsledkem</button>
+    <img class="result-img" id="result-img" alt="Výsledek testu">
+    <p class="sub" style="margin-top:8px">Kontrolní kód: <span class="tcode">${esc(test.code)}</span></p>
+    <div class="tfinish">${testRestart?
+      `<div class="tconfirm"><b>Začít test znovu?</b> Tenhle výsledek se smaže – odevzdej ho nejdřív, pokud ho chceš mít.<div class="row"><button class="btn primary small" data-test-act="restart-yes">Ano, začít znovu</button><button class="btn ghost small" data-test-act="restart-no">Ne</button></div></div>`:
+      `<button class="linkbtn" data-test-act="restart">Začít test znovu</button>`}
+      <p class="small-link"><button class="linkbtn" data-test-act="verify">Pro učitele: ověřit kontrolní kód z obrázku</button></p></div>`;
+  drawResult().then(c=>{const img=$('#result-img');if(c&&img) img.src=c.toDataURL('image/png'); else if(img) img.remove();});
+}
+
+async function drawResult(){
+  const items=TEST_ITEMS, Wd=1000, rowH=40, top=330, H=top+items.length*rowH+150;
+  const c=document.createElement('canvas'); c.width=Wd; c.height=H;
+  let x; try{x=c.getContext('2d');}catch(_){x=null;}
+  if(!x) return null;
+  try{await document.fonts.ready;}catch(_){}
+  const SERIF="Spectral, Georgia, serif", SANS="'IBM Plex Sans', Arial, sans-serif", MONO="'IBM Plex Mono', Consolas, monospace";
+  const n=testDone(), all=items.length, mins=Math.max(1,Math.round((test.end-test.start)/60000));
+  const fit=(s,max)=>{if(x.measureText(s).width<=max) return s;while(s.length>1&&x.measureText(s+'…').width>max) s=s.slice(0,-1);return s+'…';};
+  x.fillStyle='#F7F2E7'; x.fillRect(0,0,Wd,H);
+  x.fillStyle='#1F332A'; x.fillRect(0,0,Wd,110);
+  x.fillStyle='#FFFFFF'; x.font=`700 34px ${SERIF}`; x.textBaseline='alphabetic'; x.fillText('Test: Databáze – Školní knihovna',40,58);
+  x.fillStyle='#C9DDD0'; x.font=`400 18px ${SANS}`; x.fillText('Informatika · 9. ročník · výsledek ze simulátoru',40,90);
+  const rows=[['Jméno',test.name],['Třída',test.cls],['Datum',fmtDate(test.start)],['Čas',`${fmtTime(test.start)} – ${fmtTime(test.end)} (${mins} min)`],['Přidaná kniha',test.book?'„'+test.book+'“':'–']];
+  rows.forEach((r,i)=>{const y=155+i*30;x.fillStyle='#5B5147';x.font=`600 17px ${SANS}`;x.fillText(r[0]+':',40,y);x.fillStyle='#2B2420';x.font=`${i===0?'700 20px':'400 18px'} ${SANS}`;x.fillText(fit(String(r[1]),440),190,y);});
+  x.fillStyle='#FFFFFF'; x.strokeStyle='#C9BFA8'; x.lineWidth=2; x.fillRect(690,132,270,150); x.strokeRect(690,132,270,150);
+  x.textAlign='center'; x.fillStyle='#1F332A'; x.font=`700 60px ${SERIF}`; x.fillText(`${n} / ${all}`,825,212);
+  x.fillStyle='#5B5147'; x.font=`600 18px ${SANS}`; x.fillText(`splněných úloh · ${Math.round(n/all*100)} %`,825,252);
+  x.textAlign='left';
+  x.strokeStyle='#C9BFA8'; x.lineWidth=1; x.beginPath(); x.moveTo(40,305); x.lineTo(960,305); x.stroke();
+  items.forEach((it,i)=>{
+    const y=top+i*rowH, cy=y+rowH/2, d=test.done[it.id];
+    if(i%2===0){x.fillStyle='#EFE8DA';x.fillRect(30,y,940,rowH);}
+    x.beginPath(); x.arc(58,cy,13,0,Math.PI*2); x.fillStyle=d?'#2F4A3C':'#F0D9D4'; x.fill();
+    x.lineWidth=3; x.lineCap='round'; x.strokeStyle=d?'#FFFFFF':'#A63D2F'; x.beginPath();
+    if(d){x.moveTo(51,cy);x.lineTo(56,cy+5);x.lineTo(65,cy-5);}else{x.moveTo(53,cy-5);x.lineTo(63,cy+5);x.moveTo(63,cy-5);x.lineTo(53,cy+5);}
+    x.stroke();
+    x.fillStyle='#2B2420'; x.font=`600 18px ${SANS}`; x.textBaseline='middle'; x.fillText(`${i+1}.`,84,cy);
+    x.font=`400 18px ${SANS}`; x.fillText(fit(it.short,640),118,cy);
+    x.textAlign='right'; x.fillStyle=d?'#2F4A3C':'#A63D2F'; x.font=`600 16px ${SANS}`; x.fillText(d?'splněno v '+fmtTime(d):'nesplněno',960,cy);
+    x.textAlign='left'; x.textBaseline='alphabetic';
+  });
+  const fy=top+items.length*rowH+40;
+  x.strokeStyle='#C9BFA8'; x.beginPath(); x.moveTo(40,fy-14); x.lineTo(960,fy-14); x.stroke();
+  x.fillStyle='#5B5147'; x.font=`600 17px ${SANS}`; x.fillText('Kontrolní kód:',40,fy+22);
+  x.fillStyle='#1F332A'; x.font=`600 26px ${MONO}`; x.fillText(test.code,190,fy+24);
+  x.fillStyle='#8C8173'; x.font=`400 14px ${SANS}`; x.fillText('Kód ověří učitel v simulátoru (Test → Pro učitele: ověřit kontrolní kód). Upravený obrázek kódem neprojde.',40,fy+62);
+  return c;
+}
+function downloadResult(){
+  drawResult().then(c=>{
+    if(!c){toast('Obrázek se nepodařilo vytvořit – udělej snímek obrazovky (Win + Shift + S).',5000);return;}
+    const name='Test_databaze_'+(norm(test.name).replace(/ /g,'_')||'zak')+'.png';
+    const go=href=>{const a=document.createElement('a');a.href=href;a.download=name;document.body.appendChild(a);a.click();a.remove();};
+    if(c.toBlob) c.toBlob(b=>{if(!b){go(c.toDataURL('image/png'));return;}const u=URL.createObjectURL(b);go(u);setTimeout(()=>URL.revokeObjectURL(u),5000);},'image/png');
+    else go(c.toDataURL('image/png'));
+    toast('Obrázek se stáhl do složky Stažené soubory. Teď ho nahraj do zadání v Teams.',5000);
+  });
+}
+function testAction(act,el){
+  if(act==='start'){
+    const name=$('#t-name').value.trim().replace(/\s+/g,' '), cls=$('#t-cls').value.trim().replace(/\s+/g,' '), pass=$('#t-pass').value;
+    const err=$('#t-err');
+    if(name.split(' ').length<2||norm(name).length<4){err.textContent='Napiš své celé jméno a příjmení.';return;}
+    if(!cls){err.textContent='Napiš svou třídu.';return;}
+    if(!pass.trim()){err.textContent='Zadej heslo, které ti řekne učitel.';return;}
+    startTest(name,cls); return;
+  }
+  if(act==='insert'){const it=TEST_ITEMS.find(x=>x.id===el.dataset.id);$('#drawer').classList.remove('open');if(it) toConsole(it.start);return;}
+  if(act==='finish'){testConfirm=true;renderMissions();return;}
+  if(act==='finish-no'){testConfirm=false;renderMissions();return;}
+  if(act==='finish-yes'){finishTest();return;}
+  if(act==='download'){downloadResult();return;}
+  if(act==='restart'){testRestart=true;renderMissions();return;}
+  if(act==='restart-no'){testRestart=false;renderMissions();return;}
+  if(act==='restart-yes'){test={status:'locked'};testRestart=false;saveTest();renderMissions();return;}
+  if(act==='verify'){$('#v-name').value='';$('#v-code').value='';$('#verify-res').innerHTML='';openModal('#verify-modal');setTimeout(()=>$('#v-name').focus(),60);}
+}
+$('#v-check').addEventListener('click',()=>{
+  const name=$('#v-name').value, code=$('#v-code').value, r=verifyCode(name,code), out=$('#verify-res');
+  if(!r){out.innerHTML='<div class="verify-res bad"><b>Kód nesedí.</b> Buď je jméno napsané jinak než na obrázku, nebo byl obrázek upravený.</div>';return;}
+  const solved=TEST_ITEMS.map((it,i)=>(r.bits&(1<<i))?i+1:null).filter(Boolean);
+  out.innerHTML=`<div class="verify-res ok"><b>Kód sedí.</b> Splněno <b>${solved.length} z ${TEST_ITEMS.length}</b> úloh, test ukončen ${fmtDate(r.ts)} v ${fmtTime(r.ts)}.<br>Splněné úlohy: ${solved.length?solved.join(', '):'žádná'}.</div>`;
+});
+$('#v-code').addEventListener('keydown',e=>{if(e.key==='Enter') $('#v-check').click();});
+$('#btn-test').addEventListener('click',()=>openDrawer('T'));
+
 let drawerTab='I';
 function renderMissions(){
   const n=state.done.size, all=MISSIONS.length, n2=state.done2.size, all2=TASKS.length, h2=totalHints();
@@ -1181,9 +1443,12 @@ function renderMissions(){
   $('#mission2-count').textContent=n2+'/'+all2;
   $('#dtab1').textContent='('+n+'/'+all+')';
   $('#dtab2').textContent='('+n2+'/'+all2+')';
+  updateTestBadge();
   $$('[data-dtab]').forEach(b=>b.classList.toggle('on',b.dataset.dtab===drawerTab));
   const body=$('#drawer-body');
-  if(drawerTab==='I'){
+  if(drawerTab==='T'){
+    renderTestPane(body);
+  }else if(drawerTab==='I'){
     body.innerHTML=`<div class="progress"><i style="width:${n/all*100}%"></i></div><div class="sub">${n===all?'Všechno splněno! Pokračuj v Mise II – tam už píšeš příkazy sám/sama.':`Splněno ${n} z ${all}. Tady se učíš klikáním na karty a tlačítka.`}</div>`+
       MISSIONS.map((m,i)=>{const d=state.done.has(m.id);return `<div class="mission${d?' done':''}"><div class="mcheck">${d?'✓':''}</div><div class="mbody"><div class="mtitle">${i+1}. ${esc(m.title)}</div><div class="mhint">${d?'Hotovo.':'Nápověda: '+esc(m.hint)}</div></div></div>`;}).join('')+
       '<div class="drawer-foot">Hotovo? Udělej snímek obrazovky tohohle seznamu (klávesy <b>Win + Shift + S</b>) a vlož ho do zadání v Teams.</div>';
@@ -1201,7 +1466,10 @@ function renderMissions(){
   }
 }
 function openDrawer(tab){drawerTab=tab;renderMissions();$('#drawer').classList.add('open');}
-$('#drawer-body').addEventListener('click',e=>{const b=e.target.closest('[data-task]');if(b) startTask(b.dataset.task);});
+$('#drawer-body').addEventListener('click',e=>{
+  const b=e.target.closest('[data-task]'); if(b){startTask(b.dataset.task);return;}
+  const a=e.target.closest('[data-test-act]'); if(a) testAction(a.dataset.testAct,a);
+});
 $$('[data-dtab]').forEach(b=>b.addEventListener('click',()=>{drawerTab=b.dataset.dtab;renderMissions();}));
 $('#btn-missions').addEventListener('click',()=>openDrawer('I'));
 $('#btn-missions2').addEventListener('click',()=>openDrawer('II'));
@@ -1219,7 +1487,7 @@ const INTRO=[
   {h:'Vítej ve školní knihovně',b:`<p>Tahle stránka je <b>databáze</b> školní knihovny. Databáze je vlastně chytrá kartotéka: každá kniha má svou <b>kartu</b> a všechny karty mají stejné kolonky – název, autora, žánr, rok vydání…</p><p>Knihy tu můžeš hledat, přidávat, upravovat, půjčovat i mazat. Nic nerozbiješ – tlačítko <b>Obnovit knihovnu</b> vrátí všechno na začátek.</p>`},
   {h:'Karta = záznam, kolonka = sloupec',b:`<p>Všechny karty knih dohromady tvoří <b>tabulku</b> Knihy. Databáze si je ve skutečnosti ukládá takhle – jako řádky a sloupce:</p>${miniTable}<div class="tags"><div><span class="tag" style="background:#FFE7AE">žlutý řádek</span> = jeden <b>záznam</b> – jedna karta, jedna kniha</div><div><span class="tag" style="background:rgba(43,90,140,.18)">modrý sloupec</span> = jeden <b>sloupec</b> – stejná kolonka na všech kartách (tady Rok)</div><div><span class="tag" style="background:var(--amber)">Kniha_ID</span> = <b>primární klíč</b> – jedinečné číslo každé karty, nikdy se neopakuje</div></div><p>Malým šedým písmem uvidíš názvy sloupců i na každé kartě.</p>`},
   {h:'Databáze mluví svým jazykem',b:`<p>Když klikneš na tlačítko nebo vybereš filtr, stránka to databázi „řekne“ v jazyce <b>SQL</b>. Vpravo pak uvidíš celý příkaz – a pod každým slovem český překlad. Třeba výběr žánru Fantasy vypadá takhle:</p>${glossHTML(cmdTokens(exampleCmd))}<p>Barvy pomáhají: <b style="color:var(--k-kw)">zelená</b> = co se má udělat, <b style="color:var(--k-tbl)">hnědá</b> = tabulka, <b style="color:var(--k-col)">modrá</b> = sloupec, <b style="color:var(--k-val)">červená</b> = hodnota.</p><p>Až tomu přijdeš na kloub, zkus příkaz napsat sám/sama do konzole pod ním.</p>`},
-  {h:'Databáze hlídá pravidla',b:`<p>Některé věci ti databáze nedovolí – třeba dvě knihy se stejným číslem nebo smazat knihu, kterou má někdo půjčenou. Když se to stane, uvidíš <b style="color:var(--red)">červené razítko</b>. <b>Přečti si, proč to nešlo</b> – to je to nejdůležitější, co se tu naučíš.</p><p>Vpravo nahoře najdeš <b>Mise I</b> – ${MISSIONS.length} úkolů, kde se klikáním naučíš to podstatné. Pak přijde <b>Mise II</b>, kde už příkazy píšeš sám/sama. Hodně štěstí!</p>`}
+  {h:'Databáze hlídá pravidla',b:`<p>Některé věci ti databáze nedovolí – třeba dvě knihy se stejným číslem nebo smazat knihu, kterou má někdo půjčenou. Když se to stane, uvidíš <b style="color:var(--red)">červené razítko</b>. <b>Přečti si, proč to nešlo</b> – to je to nejdůležitější, co se tu naučíš.</p><p>Vpravo nahoře najdeš <b>Mise I</b> – ${MISSIONS.length} úkolů, kde se klikáním naučíš to podstatné. Pak přijde <b>Mise II</b>, kde už příkazy píšeš sám/sama. Na konci tě čeká <b>Test</b> – ten spustíš, až ti to řekne učitel. Hodně štěstí!</p>`}
 ];
 let introStep=0;
 function renderIntro(){
@@ -1236,10 +1504,13 @@ $('#intro-skip').addEventListener('click',closeModals);
 $('#btn-intro').addEventListener('click',openIntro);
 
 /* ---------------- Start ---------------- */
+loadTest();
 renderMissions();
 refresh('Vypujcky');
 refresh('Knihy','Tvoje akce: otevřít tabulku Knihy');
-openIntro();
+if(test.status==='running'){openDrawer('T');toast('Test pokračuje – tvůj postup se uložil.',4500);}
+else if(test.status==='done') openDrawer('T');
+else openIntro();
 })();
 </script>
 </body>
